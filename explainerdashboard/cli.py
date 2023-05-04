@@ -51,7 +51,7 @@ def build_explainer(explainer_config):
 
     print(f"explainerdashboard ===> Loading model from {config['modelfile']}")
     model = pickle.load(open(config['modelfile'], "rb"))
-    
+
     print(f"explainerdashboard ===> Loading data from {config['datafile']}")
     if str(config['datafile']).endswith('.csv'):
         df = pd.read_csv(config['datafile'])
@@ -72,14 +72,14 @@ def build_explainer(explainer_config):
              f" in datafile ({config['datafile']})!"
               "Please set it to the proper index column name, or set it to null")
         X = X.set_index(config['data_index'])
-        
+
     params = config['params']
 
     if config['explainer_type'] == "classifier":
-        print(f"explainerdashboard ===> Generating ClassifierExplainer...")
+        print("explainerdashboard ===> Generating ClassifierExplainer...")
         explainer = ClassifierExplainer(model, X, y, **params)
     elif config['explainer_type'] == "regression":
-        print(f"explainerdashboard ===> Generating RegressionExplainer...")
+        print("explainerdashboard ===> Generating RegressionExplainer...")
         explainer = ClassifierExplainer(model, X, y, **params)
     return explainer
 
@@ -87,7 +87,9 @@ def build_explainer(explainer_config):
 def build_and_dump_explainer(explainer_config, dashboard_config=None):
     explainer = build_explainer(explainer_config)
 
-    click.echo(f"explainerdashboard ===> Calculating properties by building Dashboard...")
+    click.echo(
+        "explainerdashboard ===> Calculating properties by building Dashboard..."
+    )
     if dashboard_config is not None:
         ExplainerDashboard.from_config(explainer, dashboard_config)
     elif Path(explainer_config['explainer']['dashboard_yaml']).exists():
@@ -95,13 +97,15 @@ def build_and_dump_explainer(explainer_config, dashboard_config=None):
         dashboard_config = yaml.safe_load(open(str(explainer_config['explainer']['dashboard_yaml']), "r"))
         ExplainerDashboard.from_config(explainer, dashboard_config)
     else:
-        click.echo(f"explainerdashboard ===> Calculating all properties")
+        click.echo("explainerdashboard ===> Calculating all properties")
         explainer.calculate_properties()
 
     click.echo(f"explainerdashboard ===> Saving explainer to {explainer_config['explainer']['explainerfile']}...")
     if (dashboard_config is not None and 
         explainer_config['explainer']['explainerfile'] != dashboard_config['dashboard']['explainerfile']):
-        click.echo(f"explainerdashboard ===> Warning explainerfile in explainer config and dashboard config do not match!")
+        click.echo(
+            "explainerdashboard ===> Warning explainerfile in explainer config and dashboard config do not match!"
+        )
     explainer.dump(explainer_config['explainer']['explainerfile'])
     return
 
@@ -110,11 +114,13 @@ def launch_dashboard_from_pkl(explainer_filepath, no_browser, port, no_dashboard
     explainer = BaseExplainer.from_file(explainer_filepath)
 
     if port is None: 
-        click.echo(f"explainerdashboard ===> Setting port to 8050, override with e.g. --port 8051")
+        click.echo(
+            "explainerdashboard ===> Setting port to 8050, override with e.g. --port 8051"
+        )
         port = 8050
 
     db = ExplainerDashboard(explainer, port=port)
-    
+
     if not no_browser and not os.environ.get("WERKZEUG_RUN_MAIN"):
         webbrowser.open_new(f"http://127.0.0.1:{port}/")
 
@@ -129,7 +135,9 @@ def launch_dashboard_from_yaml(dashboard_config, no_browser, port, no_dashboard=
     elif isinstance(dashboard_config, dict):
         config = dashboard_config
     else:
-        raise ValueError(f"dashboard_config should either be a .yaml filepath or a dict!")
+        raise ValueError(
+            "dashboard_config should either be a .yaml filepath or a dict!"
+        )
 
     if not Path(config['dashboard']['explainerfile']).exists():
         click.echo(f"explainerdashboard ===> {config['dashboard']['explainerfile']} does not exist!")
@@ -137,7 +145,7 @@ def launch_dashboard_from_yaml(dashboard_config, no_browser, port, no_dashboard=
         return
 
     click.echo(f"explainerdashboard ===> Building dashboard from {config['dashboard']['explainerfile']}")
-    
+
     db = ExplainerDashboard.from_config(config)
 
     if port is None: 
@@ -147,10 +155,12 @@ def launch_dashboard_from_yaml(dashboard_config, no_browser, port, no_dashboard=
         click.echo(f"explainerdashboard ===> Setting port to {port}, override with e.g. --port 8051")
 
     if not no_browser and not os.environ.get("WERKZEUG_RUN_MAIN"):
-        click.echo(f"explainerdashboard ===> launching browser at {f'http://localhost:{port}/'}")
+        click.echo(
+            f"explainerdashboard ===> launching browser at http://localhost:{port}/"
+        )
         webbrowser.open_new(f"http://localhost:{port}/")
-    
-    click.echo(f"explainerdashboard ===> Starting dashboard:")
+
+    click.echo("explainerdashboard ===> Starting dashboard:")
     if not no_dashboard:
         waitress.serve(db.flask_server(), host='0.0.0.0', port=port)
     return
@@ -166,10 +176,10 @@ def launch_hub_from_yaml(hub_config, no_browser, port, no_dashboard=False):
         click.echo(f"explainerhub ===> Setting port to {port}, override with e.g. --port 8051")
 
     if not no_browser and not os.environ.get("WERKZEUG_RUN_MAIN"):
-        click.echo(f"explainerhub ===> launching browser at {f'http://localhost:{port}/'}")
+        click.echo(f"explainerhub ===> launching browser at http://localhost:{port}/")
         webbrowser.open_new(f"http://localhost:{port}/")
-    
-    click.echo(f"explainerhub ===> Starting dashboard:")
+
+    click.echo("explainerhub ===> Starting dashboard:")
     if not no_dashboard:
         waitress.serve(hub.flask_server(), host='0.0.0.0', port=port)
     return
@@ -326,7 +336,7 @@ def build(ctx, explainer_filepath, dashboard_filepath):
 
         print(f"explainerdashboard ===> Building {explainer_config['explainer']['explainerfile']}")
         build_and_dump_explainer(explainer_config, dashboard_config)
-        print(f"explainerdashboard ===> Build finished!")
+        print("explainerdashboard ===> Build finished!")
         return 
 
 @explainerdashboard_cli.command(help="run without launching dashboard")

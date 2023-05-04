@@ -15,7 +15,7 @@ def get_skorch_regressor():
     y = y / np.std(y)
     y = y.reshape(-1, 1).astype(np.float32)
 
-    X_df = pd.DataFrame(X, columns=['col'+str(i) for i in range(X.shape[1])])
+    X_df = pd.DataFrame(X, columns=[f'col{str(i)}' for i in range(X.shape[1])])
 
     class MyModule(nn.Module):
         def __init__(self, input_units=5, num_units=5, nonlin=nn.ReLU()):
@@ -48,7 +48,7 @@ def get_skorch_classifier():
     X = X.astype(np.float32)
     y = y.astype(np.int64)
 
-    X_df = pd.DataFrame(X, columns=['col'+str(i) for i in range(X.shape[1])])
+    X_df = pd.DataFrame(X, columns=[f'col{str(i)}' for i in range(X.shape[1])])
 
 
     class MyModule(nn.Module):

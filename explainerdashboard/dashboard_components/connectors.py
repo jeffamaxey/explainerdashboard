@@ -53,7 +53,7 @@ class CutoffPercentileComponent(ExplainerComponent):
         """
         super().__init__(explainer, title, name)
 
-        self.cutoff_name = 'cutoffconnector-cutoff-'+self.name
+        self.cutoff_name = f'cutoffconnector-cutoff-{self.name}'
 
         self.selector = PosLabelSelector(explainer, name=self.name, pos_label=pos_label)
 
@@ -68,68 +68,136 @@ class CutoffPercentileComponent(ExplainerComponent):
         self.register_dependencies(['preds', 'pred_percentiles'])
 
     def layout(self):
-        return dbc.Card([
-            make_hideable(
-                dbc.CardHeader([
-                    html.H3(self.title, className="card-title", id='cutoffconnector-title-'+self.name),
-                    dbc.Tooltip(self.description, target='cutoffconnector-title-'+self.name),
-                ]), hide=self.hide_title),
-            dbc.CardBody([
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Row([
-                            make_hideable(
-                                dbc.Col([
-                                    html.Div([
-                                        html.Label('Cutoff prediction probability:'),
-                                        dcc.Slider(id='cutoffconnector-cutoff-'+self.name,
-                                                    min = 0.01, max = 0.99, step=0.01, value=self.cutoff,
-                                                    marks={0.01: '0.01', 0.25: '0.25', 0.50: '0.50',
-                                                            0.75: '0.75', 0.99: '0.99'},
-                                                    included=False,
-                                                    tooltip = {'always_visible' : False}),
-                                    ], style={'margin-bottom': 15}, id='cutoffconnector-cutoff-div-'+self.name),
-                                    dbc.Tooltip(f"Scores above this cutoff will be labeled positive",
-                                                    target='cutoffconnector-cutoff-div-'+self.name,
-                                                    placement='bottom'),
-                                ]), hide=self.hide_cutoff),
-                        ]),
-                        dbc.Row([
+        return dbc.Card(
+            [
+                make_hideable(
+                    dbc.CardHeader(
+                        [
+                            html.H3(
+                                self.title,
+                                className="card-title",
+                                id=f'cutoffconnector-title-{self.name}',
+                            ),
+                            dbc.Tooltip(
+                                self.description,
+                                target=f'cutoffconnector-title-{self.name}',
+                            ),
+                        ]
+                    ),
+                    hide=self.hide_title,
+                ),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dbc.Row(
+                                            [
+                                                make_hideable(
+                                                    dbc.Col(
+                                                        [
+                                                            html.Div(
+                                                                [
+                                                                    html.Label(
+                                                                        'Cutoff prediction probability:'
+                                                                    ),
+                                                                    dcc.Slider(
+                                                                        id=f'cutoffconnector-cutoff-{self.name}',
+                                                                        min=0.01,
+                                                                        max=0.99,
+                                                                        step=0.01,
+                                                                        value=self.cutoff,
+                                                                        marks={
+                                                                            0.01: '0.01',
+                                                                            0.25: '0.25',
+                                                                            0.50: '0.50',
+                                                                            0.75: '0.75',
+                                                                            0.99: '0.99',
+                                                                        },
+                                                                        included=False,
+                                                                        tooltip={
+                                                                            'always_visible': False
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                                style={
+                                                                    'margin-bottom': 15
+                                                                },
+                                                                id=f'cutoffconnector-cutoff-div-{self.name}',
+                                                            ),
+                                                            dbc.Tooltip(
+                                                                "Scores above this cutoff will be labeled positive",
+                                                                target=f'cutoffconnector-cutoff-div-{self.name}',
+                                                                placement='bottom',
+                                                            ),
+                                                        ]
+                                                    ),
+                                                    hide=self.hide_cutoff,
+                                                )
+                                            ]
+                                        ),
+                                        dbc.Row(
+                                            [
+                                                make_hideable(
+                                                    dbc.Col(
+                                                        [
+                                                            html.Div(
+                                                                [
+                                                                    html.Label(
+                                                                        'Cutoff percentile of samples:'
+                                                                    ),
+                                                                    dcc.Slider(
+                                                                        id=f'cutoffconnector-percentile-{self.name}',
+                                                                        min=0.01,
+                                                                        max=0.99,
+                                                                        step=0.01,
+                                                                        value=self.percentile,
+                                                                        marks={
+                                                                            0.01: '0.01',
+                                                                            0.25: '0.25',
+                                                                            0.50: '0.50',
+                                                                            0.75: '0.75',
+                                                                            0.99: '0.99',
+                                                                        },
+                                                                        included=False,
+                                                                        tooltip={
+                                                                            'always_visible': False
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                                style={
+                                                                    'margin-bottom': 15
+                                                                },
+                                                                id=f'cutoffconnector-percentile-div-{self.name}',
+                                                            ),
+                                                            dbc.Tooltip(
+                                                                "example: if set to percentile=0.9: label the top 10% highest scores as positive, the rest negative.",
+                                                                target=f'cutoffconnector-percentile-div-{self.name}',
+                                                                placement='bottom',
+                                                            ),
+                                                        ]
+                                                    ),
+                                                    hide=self.hide_percentile,
+                                                )
+                                            ]
+                                        ),
+                                    ]
+                                ),
                                 make_hideable(
-                                dbc.Col([
-                                    html.Div([
-                                        html.Label('Cutoff percentile of samples:'),
-                                        dcc.Slider(id='cutoffconnector-percentile-'+self.name,
-                                                    min = 0.01, max = 0.99, step=0.01, value=self.percentile,
-                                                    marks={0.01: '0.01', 0.25: '0.25', 0.50: '0.50',
-                                                            0.75: '0.75', 0.99: '0.99'},
-                                                    included=False,
-                                                    tooltip = {'always_visible' : False}),
-                                        
-                                    ], style={'margin-bottom': 15}, id='cutoffconnector-percentile-div-'+self.name),
-                                    dbc.Tooltip(f"example: if set to percentile=0.9: label the top 10% highest scores as positive, the rest negative.",
-                                                    target='cutoffconnector-percentile-div-'+self.name,
-                                                    placement='bottom'),
-                                ]), hide=self.hide_percentile),
-                        ])
-                    ]),
-                    make_hideable(
-                        dbc.Col([
-                            self.selector.layout()
-                        ], width=2), hide=self.hide_selector),
-                ])
-
-            ])
-            
-        ])
+                                    dbc.Col([self.selector.layout()], width=2),
+                                    hide=self.hide_selector,
+                                ),
+                            ]
+                        )
+                    ]
+                ),
+            ]
+        )
 
 
     def component_callbacks(self, app):
-        @app.callback(
-            Output('cutoffconnector-cutoff-'+self.name, 'value'),
-            [Input('cutoffconnector-percentile-'+self.name, 'value'),
-             Input('pos-label-'+self.name, 'value')]
-        )
+        @app.callback(Output(f'cutoffconnector-cutoff-{self.name}', 'value'), [Input(f'cutoffconnector-percentile-{self.name}', 'value'), Input(f'pos-label-{self.name}', 'value')])
         def update_cutoff(percentile, pos_label):
             if percentile is not None:
                 return np.round(self.explainer.cutoff_from_percentile(percentile, pos_label=pos_label), 2)
@@ -145,9 +213,9 @@ class PosLabelConnector(ExplainerComponent):
 
     def _get_pos_label(self, input_pos_label):
         if isinstance(input_pos_label, PosLabelSelector):
-            return 'pos-label-' + input_pos_label.name
+            return f'pos-label-{input_pos_label.name}'
         elif hasattr(input_pos_label, 'selector') and isinstance(input_pos_label.selector, PosLabelSelector):
-            return 'pos-label-' + input_pos_label.selector.name
+            return f'pos-label-{input_pos_label.selector.name}'
         elif isinstance(input_pos_label, str):
             return input_pos_label
         else:
@@ -158,7 +226,7 @@ class PosLabelConnector(ExplainerComponent):
     def _get_pos_labels(self, output_pos_labels):
         def get_pos_labels(o):
             if isinstance(o, PosLabelSelector):
-                return ['pos-label-'+o.name]
+                return [f'pos-label-{o.name}']
             elif isinstance(o, str):
                 return [str]
             elif hasattr(o, 'pos_labels'):

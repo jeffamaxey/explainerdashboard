@@ -39,16 +39,6 @@ class ImportancesTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the ImportancesComposite instead!")
-        super().__init__(explainer, title, name)
-
-        self.importances = ImportancesComponent(
-                explainer, 
-                hide_selector=hide_selector,
-                importance_type=importance_type, 
-                depth=depth, 
-                cats=cats, hide_cats=hide_cats)
-
-        self.register_components(self.importances)
 
     def layout(self):
         return html.Div([
@@ -85,17 +75,6 @@ class ModelSummaryTab(ExplainerComponent):
                     "Use the ClassifierModelStatsComposite or "
                     "RegressionModelStatsComposite instead!")
 
-        super().__init__(explainer, title, name)
-        
-        if self.explainer.is_classifier:
-            self.model_stats = ClassifierModelStatsComposite(explainer, 
-                bin_size=bin_size, quantiles=quantiles, cutoff=cutoff, **kwargs) 
-        elif explainer.is_regression:
-            self.model_stats = RegressionModelStatsComposite(explainer,
-                logs=logs, pred_or_actual=pred_or_actual, residuals=residuals, **kwargs)
-
-        self.register_components(self.model_stats)
-
     def layout(self):
         return html.Div([
             self.model_stats.layout()
@@ -121,12 +100,6 @@ class ContributionsTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the IndividualPredictionsComposite instead!")
-        super().__init__(explainer, title, name)
-        self.tab_id = "contributions"
-        self.contribs = IndividualPredictionsComposite(explainer, 
-                            #higher_is_better=higher_is_better, 
-                            **kwargs)
-        self.register_components(self.contribs)
     
     def layout(self):
         return html.Div([
@@ -150,10 +123,6 @@ class WhatIfTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the WhatIfComposite instead!")
-        super().__init__(explainer, title, name)
-        self.tab_id = "whatif"
-        self.whatif = WhatIfComposite(explainer, **kwargs)
-        self.register_components(self.whatif)
     
     def layout(self):
         return html.Div([
@@ -179,11 +148,6 @@ class ShapDependenceTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the ShapDependenceComposite instead!")
-        super().__init__(explainer, title, name)
-
-        self.shap_overview = ShapDependenceComposite(
-            explainer, depth=depth, cats=cats, **kwargs)
-        self.register_components(self.shap_overview)
 
     def layout(self):
         return html.Div([
@@ -209,10 +173,6 @@ class ShapInteractionsTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the ShapInteractionsComposite instead!")
-        super().__init__(explainer, title, name)
-        self.interaction_overview = ShapInteractionsComposite(
-                    explainer, depth=depth, cats=cats, **kwargs)
-        self.register_components(self.interaction_overview)
 
     def layout(self):
         return html.Div([
@@ -236,10 +196,6 @@ class DecisionTreesTab(ExplainerComponent):
         """
         raise DeprecationWarning("This component has been deprecated. "
                     "Use the DecisionTreesComposite instead!")
-        super().__init__(explainer, title, name)
-
-        self.trees = DecisionTreesComposite(explainer, **kwargs)
-        self.register_components(self.trees)
 
     def layout(self):
         return html.Div([

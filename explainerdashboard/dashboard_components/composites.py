@@ -50,9 +50,10 @@ class ImportancesComposite(ExplainerComponent):
         super().__init__(explainer, title, name)
 
         self.importances = ImportancesComponent(
-                explainer, name=self.name+"0", hide_selector=hide_selector, **kwargs)
+            explainer, name=f"{self.name}0", hide_selector=hide_selector, **kwargs
+        )
         self.feature_descriptions = FeatureDescriptionsComponent(explainer, **kwargs)
-        
+
         if not self.explainer.descriptions:
             self.hide_descriptions=True
 
@@ -83,9 +84,7 @@ class ImportancesComposite(ExplainerComponent):
             [to_html.hide(self.importances.to_html(state_dict, add_header=False), self.hide_importances)],
             [to_html.hide(self.feature_descriptions.to_html(state_dict, add_header=False), self.hide_descriptions)],
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class ClassifierModelStatsComposite(ExplainerComponent):
@@ -132,25 +131,70 @@ class ClassifierModelStatsComposite(ExplainerComponent):
         """
         super().__init__(explainer, title, name)
 
-        self.summary = ClassifierModelSummaryComponent(explainer, name=self.name+"0", 
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.precision = PrecisionComponent(explainer, name=self.name+"1",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.confusionmatrix = ConfusionMatrixComponent(explainer, name=self.name+"2",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.cumulative_precision = CumulativePrecisionComponent(explainer, name=self.name+"3",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.liftcurve = LiftCurveComponent(explainer, name=self.name+"4",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.classification = ClassificationComponent(explainer, name=self.name+"5",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.rocauc = RocAucComponent(explainer, name=self.name+"6",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
-        self.prauc = PrAucComponent(explainer, name=self.name+"7",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
+        self.summary = ClassifierModelSummaryComponent(
+            explainer,
+            name=f"{self.name}0",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.precision = PrecisionComponent(
+            explainer,
+            name=f"{self.name}1",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.confusionmatrix = ConfusionMatrixComponent(
+            explainer,
+            name=f"{self.name}2",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.cumulative_precision = CumulativePrecisionComponent(
+            explainer,
+            name=f"{self.name}3",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.liftcurve = LiftCurveComponent(
+            explainer,
+            name=f"{self.name}4",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.classification = ClassificationComponent(
+            explainer,
+            name=f"{self.name}5",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.rocauc = RocAucComponent(
+            explainer,
+            name=f"{self.name}6",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
+        self.prauc = PrAucComponent(
+            explainer,
+            name=f"{self.name}7",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
 
-        self.cutoffpercentile = CutoffPercentileComponent(explainer, name=self.name+"8",
-                hide_selector=hide_selector, pos_label=pos_label, **kwargs)
+        self.cutoffpercentile = CutoffPercentileComponent(
+            explainer,
+            name=f"{self.name}8",
+            hide_selector=hide_selector,
+            pos_label=pos_label,
+            **kwargs,
+        )
         self.cutoffconnector = CutoffConnector(self.cutoffpercentile,
                 [self.summary, self.precision, self.confusionmatrix, self.liftcurve, 
                  self.cumulative_precision, self.classification, self.rocauc, self.prauc])
@@ -198,9 +242,7 @@ class ClassifierModelStatsComposite(ExplainerComponent):
             [to_html.hide(self.liftcurve.to_html(state_dict, add_header=False), hide=self.hide_liftcurve),
              to_html.hide(self.cumulative_precision.to_html(state_dict, add_header=False), hide=self.hide_cumprecision)]
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class RegressionModelStatsComposite(ExplainerComponent):
@@ -237,18 +279,26 @@ class RegressionModelStatsComposite(ExplainerComponent):
             col ({str, int}, optional): Feature to use for residuals plot. Defaults to None.
         """
         super().__init__(explainer, title, name)
-     
-        assert pred_or_actual in ['vs_actual', 'vs_pred'], \
-            "pred_or_actual should be 'vs_actual' or 'vs_pred'!"
 
-        self.modelsummary = RegressionModelSummaryComponent(explainer, 
-                                name=self.name+"0",**kwargs)
-        self.preds_vs_actual = PredictedVsActualComponent(explainer, name=self.name+"0",
-                    logs=logs, **kwargs)
-        self.residuals = ResidualsComponent(explainer, name=self.name+"1",
-                    pred_or_actual=pred_or_actual, residuals=residuals, **kwargs)
-        self.reg_vs_col = RegressionVsColComponent(explainer, name=self.name+"2",
-                    logs=logs, **kwargs)
+        assert pred_or_actual in ['vs_actual', 'vs_pred'], \
+                "pred_or_actual should be 'vs_actual' or 'vs_pred'!"
+
+        self.modelsummary = RegressionModelSummaryComponent(
+            explainer, name=f"{self.name}0", **kwargs
+        )
+        self.preds_vs_actual = PredictedVsActualComponent(
+            explainer, name=f"{self.name}0", logs=logs, **kwargs
+        )
+        self.residuals = ResidualsComponent(
+            explainer,
+            name=f"{self.name}1",
+            pred_or_actual=pred_or_actual,
+            residuals=residuals,
+            **kwargs,
+        )
+        self.reg_vs_col = RegressionVsColComponent(
+            explainer, name=f"{self.name}2", logs=logs, **kwargs
+        )
 
     def layout(self):
         return html.Div([
@@ -275,9 +325,7 @@ class RegressionModelStatsComposite(ExplainerComponent):
             [to_html.hide(self.residuals.to_html(state_dict, add_header=False), hide=self.hide_residuals),
              to_html.hide(self.reg_vs_col.to_html(state_dict, add_header=False), hide=self.hide_regvscol)],
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class IndividualPredictionsComposite(ExplainerComponent):
@@ -318,22 +366,41 @@ class IndividualPredictionsComposite(ExplainerComponent):
         super().__init__(explainer, title, name)
 
         if self.explainer.is_classifier:
-            self.index = ClassifierRandomIndexComponent(explainer, name=self.name+"0",
-                    hide_selector=hide_selector, **kwargs)
-            self.summary = ClassifierPredictionSummaryComponent(explainer, name=self.name+"1",
-                    hide_selector=hide_selector, **kwargs)
+            self.index = ClassifierRandomIndexComponent(
+                explainer,
+                name=f"{self.name}0",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
+            self.summary = ClassifierPredictionSummaryComponent(
+                explainer,
+                name=f"{self.name}1",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
         elif self.explainer.is_regression:
-            self.index = RegressionRandomIndexComponent(explainer, name=self.name+"0",
-                    hide_selector=hide_selector, **kwargs)
-            self.summary = RegressionPredictionSummaryComponent(explainer, name=self.name+"1",
-                    hide_selector=hide_selector, **kwargs)
+            self.index = RegressionRandomIndexComponent(
+                explainer,
+                name=f"{self.name}0",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
+            self.summary = RegressionPredictionSummaryComponent(
+                explainer,
+                name=f"{self.name}1",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
 
-        self.contributions = ShapContributionsGraphComponent(explainer, name=self.name+"2",
-                        hide_selector=hide_selector, **kwargs)
-        self.pdp = PdpComponent(explainer, name=self.name+"3",
-                        hide_selector=hide_selector, **kwargs)
-        self.contributions_list = ShapContributionsTableComponent(explainer, name=self.name+"4",
-                        hide_selector=hide_selector,  **kwargs)
+        self.contributions = ShapContributionsGraphComponent(
+            explainer, name=f"{self.name}2", hide_selector=hide_selector, **kwargs
+        )
+        self.pdp = PdpComponent(
+            explainer, name=f"{self.name}3", hide_selector=hide_selector, **kwargs
+        )
+        self.contributions_list = ShapContributionsTableComponent(
+            explainer, name=f"{self.name}4", hide_selector=hide_selector, **kwargs
+        )
 
         self.index_connector = IndexConnector(self.index, 
                 [self.summary, self.contributions, self.pdp, self.contributions_list],
@@ -368,9 +435,7 @@ class IndividualPredictionsComposite(ExplainerComponent):
              to_html.hide(self.pdp.to_html(state_dict, add_header=False), self.hide_pdp)],
             [to_html.hide(self.contributions_list.to_html(state_dict, add_header=False), self.hide_contributiontable)]
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class WhatIfComposite(ExplainerComponent):
@@ -407,38 +472,70 @@ class WhatIfComposite(ExplainerComponent):
                         Defaults to 'importance'.
         """
         super().__init__(explainer, title, name)
-        
+
         if 'hide_whatifcontribution' in kwargs:
             print("Warning: hide_whatifcontribution will be deprecated, use hide_whatifcontributiongraph instead!")
             self.hide_whatifcontributiongraph = kwargs['hide_whatifcontribution']
 
-        self.input = FeatureInputComponent(explainer, name=self.name+"0",
-                        hide_selector=hide_selector, n_input_cols=self.n_input_cols,
-                        **update_params(kwargs, hide_index=True))
-        
+        self.input = FeatureInputComponent(
+            explainer,
+            name=f"{self.name}0",
+            hide_selector=hide_selector,
+            n_input_cols=self.n_input_cols,
+            **update_params(kwargs, hide_index=True),
+        )
+
         if self.explainer.is_classifier:
-            self.index = ClassifierRandomIndexComponent(explainer, name=self.name+"1",
-                        hide_selector=hide_selector, **kwargs)
-            self.prediction = ClassifierPredictionSummaryComponent(explainer, name=self.name+"2",
-                        feature_input_component=self.input,
-                        hide_star_explanation=True,
-                        hide_selector=hide_selector, **kwargs)
+            self.index = ClassifierRandomIndexComponent(
+                explainer,
+                name=f"{self.name}1",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
+            self.prediction = ClassifierPredictionSummaryComponent(
+                explainer,
+                name=f"{self.name}2",
+                feature_input_component=self.input,
+                hide_star_explanation=True,
+                hide_selector=hide_selector,
+                **kwargs,
+            )
         elif self.explainer.is_regression:
-            self.index = RegressionRandomIndexComponent(explainer, name=self.name+"1", **kwargs)
-            self.prediction = RegressionPredictionSummaryComponent(explainer, name=self.name+"2",
-                        feature_input_component=self.input, **kwargs)
-        
-        
-        self.contribgraph = ShapContributionsGraphComponent(explainer, name=self.name+"3",
-                        feature_input_component=self.input,
-                        hide_selector=hide_selector, sort=sort, **kwargs)
-        self.contribtable = ShapContributionsTableComponent(explainer, name=self.name+"4",
-                        feature_input_component=self.input,
-                        hide_selector=hide_selector, sort=sort, **kwargs)
-        
-        self.pdp = PdpComponent(explainer, name=self.name+"5",
-                        feature_input_component=self.input,
-                        hide_selector=hide_selector, **kwargs)
+            self.index = RegressionRandomIndexComponent(
+                explainer, name=f"{self.name}1", **kwargs
+            )
+            self.prediction = RegressionPredictionSummaryComponent(
+                explainer,
+                name=f"{self.name}2",
+                feature_input_component=self.input,
+                **kwargs,
+            )
+                
+
+        self.contribgraph = ShapContributionsGraphComponent(
+            explainer,
+            name=f"{self.name}3",
+            feature_input_component=self.input,
+            hide_selector=hide_selector,
+            sort=sort,
+            **kwargs,
+        )
+        self.contribtable = ShapContributionsTableComponent(
+            explainer,
+            name=f"{self.name}4",
+            feature_input_component=self.input,
+            hide_selector=hide_selector,
+            sort=sort,
+            **kwargs,
+        )
+
+        self.pdp = PdpComponent(
+            explainer,
+            name=f"{self.name}5",
+            feature_input_component=self.input,
+            hide_selector=hide_selector,
+            **kwargs,
+        )
 
         self.index_connector = IndexConnector(self.index, self.input, 
                                     explainer=explainer if index_check else None)
@@ -488,9 +585,7 @@ class WhatIfComposite(ExplainerComponent):
             [to_html.hide(self.contribtable.to_html(state_dict, add_header=False), self.hide_whatifcontributiontable)]
         )
         html = to_html.div(html)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     
 class ShapDependenceComposite(ExplainerComponent):
@@ -514,13 +609,18 @@ class ShapDependenceComposite(ExplainerComponent):
             depth (int, optional): Number of features to display. Defaults to None.
         """
         super().__init__(explainer, title, name)
-        
+
         self.shap_summary = ShapSummaryComponent(
-                    self.explainer, name=self.name+"0",
-                    **update_params(kwargs, hide_selector=hide_selector, depth=depth))
+            self.explainer,
+            name=f"{self.name}0",
+            **update_params(kwargs, hide_selector=hide_selector, depth=depth),
+        )
         self.shap_dependence = ShapDependenceComponent(
-                    self.explainer, name=self.name+"1",
-                    hide_selector=hide_selector, **kwargs)
+            self.explainer,
+            name=f"{self.name}1",
+            hide_selector=hide_selector,
+            **kwargs,
+        )
         self.connector = ShapSummaryDependenceConnector(
                     self.shap_summary, self.shap_dependence)
 
@@ -538,9 +638,7 @@ class ShapDependenceComposite(ExplainerComponent):
             [to_html.hide(self.shap_summary.to_html(state_dict, add_header=False), self.hide_shapsummary), 
              to_html.hide(self.shap_dependence.to_html(state_dict, add_header=False), self.hide_shapdependence)],
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 class ShapInteractionsComposite(ExplainerComponent):
     def __init__(self, explainer, title='Feature Interactions', name=None,
@@ -563,10 +661,16 @@ class ShapInteractionsComposite(ExplainerComponent):
             depth (int, optional): Initial number of features to display. Defaults to None.
         """
         super().__init__(explainer, title, name)
-        self.interaction_summary = InteractionSummaryComponent(explainer, name=self.name+"0",
-                hide_selector=hide_selector, depth=depth,  **kwargs)
-        self.interaction_dependence = InteractionDependenceComponent(explainer, name=self.name+"1",
-                hide_selector=hide_selector,  **kwargs)
+        self.interaction_summary = InteractionSummaryComponent(
+            explainer,
+            name=f"{self.name}0",
+            hide_selector=hide_selector,
+            depth=depth,
+            **kwargs,
+        )
+        self.interaction_dependence = InteractionDependenceComponent(
+            explainer, name=f"{self.name}1", hide_selector=hide_selector, **kwargs
+        )
         self.connector = InteractionSummaryDependenceConnector(
             self.interaction_summary, self.interaction_dependence)
         
@@ -584,9 +688,7 @@ class ShapInteractionsComposite(ExplainerComponent):
             [to_html.hide(self.interaction_summary.to_html(state_dict, add_header=False), self.hide_interactionsummary), 
              to_html.hide(self.interaction_dependence.to_html(state_dict, add_header=False), self.hide_interactiondependence)],
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class DecisionTreesComposite(ExplainerComponent):
@@ -619,21 +721,29 @@ class DecisionTreesComposite(ExplainerComponent):
                 selector to feature input. Defaults to True.
         """
         super().__init__(explainer, title, name)
-        
-        self.trees = DecisionTreesComponent(explainer, name=self.name+"0",
-                    hide_selector=hide_selector, **kwargs)
-        self.decisionpath_table = DecisionPathTableComponent(explainer, name=self.name+"1",
-                    hide_selector=hide_selector, **kwargs)
+
+        self.trees = DecisionTreesComponent(
+            explainer, name=f"{self.name}0", hide_selector=hide_selector, **kwargs
+        )
+        self.decisionpath_table = DecisionPathTableComponent(
+            explainer, name=f"{self.name}1", hide_selector=hide_selector, **kwargs
+        )
 
         if explainer.is_classifier:
-            self.index = ClassifierRandomIndexComponent(explainer, name=self.name+"2",
-                    hide_selector=hide_selector, **kwargs)
+            self.index = ClassifierRandomIndexComponent(
+                explainer,
+                name=f"{self.name}2",
+                hide_selector=hide_selector,
+                **kwargs,
+            )
         elif explainer.is_regression:
-            self.index = RegressionRandomIndexComponent(explainer, name=self.name+"2",
-                    **kwargs)
+            self.index = RegressionRandomIndexComponent(
+                explainer, name=f"{self.name}2", **kwargs
+            )
 
-        self.decisionpath_graph = DecisionPathGraphComponent(explainer, name=self.name+"3",
-                    hide_selector=hide_selector, **kwargs)
+        self.decisionpath_graph = DecisionPathGraphComponent(
+            explainer, name=f"{self.name}3", hide_selector=hide_selector, **kwargs
+        )
 
         self.index_connector = IndexConnector(self.index, 
             [self.trees, self.decisionpath_table, self.decisionpath_graph], 
@@ -676,9 +786,7 @@ class DecisionTreesComposite(ExplainerComponent):
             [to_html.hide(self.trees.to_html(state_dict, add_header=False), self.hide_treesgraph)],
             [to_html.hide(self.decisionpath_table.to_html(state_dict, add_header=False), self.hide_treepathtable)],
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
         
 
 class SimplifiedClassifierComposite(ExplainerComponent):
@@ -827,9 +935,7 @@ class SimplifiedClassifierComposite(ExplainerComponent):
              to_html.hide(self.summary.to_html(state_dict, add_header=False), hide=self.hide_predictionsummary)],
             [to_html.hide(self.contributions.to_html(state_dict, add_header=False), hide=self.hide_contributiongraph)]
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 
 class SimplifiedRegressionComposite(ExplainerComponent):
@@ -962,6 +1068,4 @@ class SimplifiedRegressionComposite(ExplainerComponent):
              to_html.hide(self.summary.to_html(state_dict, add_header=False), hide=self.hide_predictionsummary)],
             [to_html.hide(self.contributions.to_html(state_dict, add_header=False), hide=self.hide_contributiongraph)]
         )
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html

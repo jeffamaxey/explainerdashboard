@@ -85,10 +85,12 @@ class ExplainerTabsLayout(ExplainerComponent):
         if self.block_selector_callbacks:
             self.header_hide_selector = True
         self.fluid = fluid
-        
+
         self.selector = PosLabelSelector(explainer, name="0", pos_label=pos_label)
         self.tabs  = [instantiate_component(tab, explainer, name=str(i+1), **kwargs) for i, tab in enumerate(tabs)]
-        assert len(self.tabs) > 0, 'When passing a list to tabs, need to pass at least one valid tab!'
+        assert (
+            self.tabs
+        ), 'When passing a list to tabs, need to pass at least one valid tab!'
 
         self.register_components(*self.tabs)
 
@@ -100,51 +102,118 @@ class ExplainerTabsLayout(ExplainerComponent):
    
     def layout(self):
         """returns a multitab layout plus ExplainerHeader"""
-        return dbc.Container([
-            dbc.Row([
+        return dbc.Container(
+            [
+                dbc.Row(
+                    [
+                        make_hideable(
+                            dbc.Col(
+                                [
+                                    html.H1(self.title, id='dashboard-title'),
+                                    dbc.Tooltip(
+                                        self.description, target='dashboard-title'
+                                    ),
+                                ],
+                                width="auto",
+                            ),
+                            hide=self.header_hide_title,
+                        ),
+                        make_hideable(
+                            dbc.Col([self.selector.layout()], md=3),
+                            hide=self.header_hide_selector,
+                        ),
+                        make_hideable(
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        [
+                                            dcc.Download(
+                                                f'download-page-{self.name}'
+                                            ),
+                                            dbc.DropdownMenu(
+                                                [
+                                                    dbc.DropdownMenuItem(
+                                                        "All tabs",
+                                                        id=f"download-button-all{self.name}",
+                                                        n_clicks=None,
+                                                    ),
+                                                    dbc.DropdownMenuItem(
+                                                        divider=True
+                                                    ),
+                                                    *[
+                                                        dbc.DropdownMenuItem(
+                                                            tab.title,
+                                                            id=f"download-button-{tab.name}",
+                                                            n_clicks=None,
+                                                        )
+                                                        for tab in self.downloadable_tabs
+                                                    ],
+                                                ],
+                                                label="Download",
+                                                color="link",
+                                                right=True,
+                                            ),
+                                        ],
+                                        style={
+                                            'display': 'flex',
+                                            'justify-content': 'flex-end',
+                                        },
+                                    )
+                                ],
+                                md="auto",
+                                className="ml-auto",
+                                align="center",
+                            ),
+                            hide=self.header_hide_download,
+                        ),
+                    ],
+                    justify="start",
+                    style=dict(marginBottom=10),
+                ),
+                dcc.Tabs(
+                    id="tabs",
+                    value=self.tabs[0].name,
+                    children=[
+                        dcc.Tab(
+                            label=tab.title,
+                            id=tab.name,
+                            value=tab.name,
+                            children=tab.layout(),
+                        )
+                        for tab in self.tabs
+                    ],
+                ),
                 make_hideable(
-                    dbc.Col([
-                        html.H1(self.title, id='dashboard-title'),
-                        dbc.Tooltip(self.description, target='dashboard-title')
-                    ], width="auto"), hide=self.header_hide_title),
-                make_hideable(
-                    dbc.Col([
-                        self.selector.layout()
-                    ], md=3), hide=self.header_hide_selector),
-                make_hideable(
-                    dbc.Col([
-                        html.Div([
-                            dcc.Download('download-page-'+self.name),
-                            dbc.DropdownMenu([
-                                    dbc.DropdownMenuItem("All tabs", id="download-button-all"+self.name, n_clicks=None), 
-                                    dbc.DropdownMenuItem(divider=True), 
-                                    *[dbc.DropdownMenuItem(tab.title, id="download-button-"+tab.name, n_clicks=None)
-                                            for tab in self.downloadable_tabs]
-                                ], label="Download", color="link", right=True),
-                        ], style={'display':'flex', 'justify-content':'flex-end'}),
-                    ], md="auto", className="ml-auto", align="center"), hide=self.header_hide_download),
-            ], justify="start", style=dict(marginBottom=10)),
-            dcc.Tabs(id="tabs", value=self.tabs[0].name, 
-                        children=[dcc.Tab(label=tab.title, id=tab.name, value=tab.name,
-                                        children=tab.layout()) for tab in self.tabs]),
-            make_hideable(
-                html.Div([
-                    html.Small("powered by: "),
-                    html.Small(html.A("explainerdashboard", 
-                            className="text-muted", target='_blank',
-                            href="https://github.com/oegedijk/explainerdashboard"))
-                ], style={'display':'flex', 'justify-content':'flex-end', 'text-align':'right'}),
-                hide=self.hide_poweredby),
-        ], fluid=self.fluid)
+                    html.Div(
+                        [
+                            html.Small("powered by: "),
+                            html.Small(
+                                html.A(
+                                    "explainerdashboard",
+                                    className="text-muted",
+                                    target='_blank',
+                                    href="https://github.com/oegedijk/explainerdashboard",
+                                )
+                            ),
+                        ],
+                        style={
+                            'display': 'flex',
+                            'justify-content': 'flex-end',
+                            'text-align': 'right',
+                        },
+                    ),
+                    hide=self.hide_poweredby,
+                ),
+            ],
+            fluid=self.fluid,
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         html = to_html.title(self.title)
         tabs = {tab.title: tab.to_html(state_dict, add_header=False) for tab in self.tabs}
         tabs = {tab: html for tab, html in tabs.items() if html != "<div></div>"}
         html += to_html.tabs(tabs)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def register_callbacks(self, app):
         """Registers callbacks for all tabs"""
@@ -153,32 +222,27 @@ class ExplainerTabsLayout(ExplainerComponent):
                 tab.register_callbacks(app)
             except AttributeError:
                 print(f"Warning: {tab} does not have a register_callbacks method!")
-                
+
         if not self.block_selector_callbacks:
-            if any([tab.has_pos_label_connector() for tab in self.tabs]):
+            if any(tab.has_pos_label_connector() for tab in self.tabs):
                 print("Warning: detected PosLabelConnectors already in the layout. "
                     "This may clash with the global pos label selector and generate duplicate callback errors. "
                     "If so set block_selector_callbacks=True.")
             self.connector.register_callbacks(app)
 
-        @app.callback(
-            Output('download-page-'+self.name, 'data'),
-            [Input('download-button-all'+self.name, 'n_clicks'),
-             *[Input("download-button-"+tab.name, 'n_clicks') for tab in self.downloadable_tabs]],
-            [State(id_, prop_) for id_, prop_ in self.get_state_tuples()]
-        )
+        @app.callback(Output(f'download-page-{self.name}', 'data'), [Input(f'download-button-all{self.name}', 'n_clicks'), *[Input(f"download-button-{tab.name}", 'n_clicks') for tab in self.downloadable_tabs]], [State(id_, prop_) for id_, prop_ in self.get_state_tuples()])
         def download_html(*args):
             state_dict = dict(zip(self.get_state_tuples(), args[1+len(self.downloadable_tabs):]))
-            
+
             ctx = dash.callback_context
             button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-            if button_id == 'download-button-all'+self.name:
+            if button_id == f'download-button-all{self.name}':
                 return dict(
                     content=self.to_html(state_dict), 
                     filename="dashboard.html"
                 )
             for tab in self.downloadable_tabs:
-                if button_id == "download-button-"+tab.name:
+                if button_id == f"download-button-{tab.name}":
                     return dict(
                         content=tab.to_html(state_dict), 
                         filename="dashboard.html"
@@ -254,45 +318,91 @@ class ExplainerPageLayout(ExplainerComponent):
         
     def layout(self):
         """returns single page layout with an ExplainerHeader"""
-        return dbc.Container([
-            dbc.Row([
-                make_hideable(
-                    dbc.Col([
-                        html.H1(self.title, id='dashboard-title'),
-                        dbc.Tooltip(self.description, target='dashboard-title')
-                    ], width="auto", align="start"), hide=self.header_hide_title),
-                make_hideable(
-                    dbc.Col([
-                        self.selector.layout()
-                    ], md=3, align="start"), hide=self.header_hide_selector),
-                make_hideable(
-                    dbc.Col([
-                        html.Div([
-                            dbc.Button("Download", id='download-page-button-'+self.name, color="link"),
-                            dcc.Download('download-page-'+self.name),
-                        ], style={'display':'flex', 'justify-content':'flex-end'}),
-                    ], md="auto", className="ml-auto", align="center"), hide=self.header_hide_download),
-            ], justify="start"),
-            self.page_layout,
-            dbc.Row([
-                make_hideable(
-                    dbc.Col([
-                        html.Div([
-                            html.Small("powered by: "),
-                            html.Small(html.A("explainerdashboard", 
-                                    className="text-muted", target='_blank',
-                                    href="https://github.com/oegedijk/explainerdashboard"))
-                        ]),
-                    ], md="3"), hide=self.hide_poweredby),
-            ], justify="end")
-        ], fluid=self.fluid)
+        return dbc.Container(
+            [
+                dbc.Row(
+                    [
+                        make_hideable(
+                            dbc.Col(
+                                [
+                                    html.H1(self.title, id='dashboard-title'),
+                                    dbc.Tooltip(
+                                        self.description, target='dashboard-title'
+                                    ),
+                                ],
+                                width="auto",
+                                align="start",
+                            ),
+                            hide=self.header_hide_title,
+                        ),
+                        make_hideable(
+                            dbc.Col([self.selector.layout()], md=3, align="start"),
+                            hide=self.header_hide_selector,
+                        ),
+                        make_hideable(
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        [
+                                            dbc.Button(
+                                                "Download",
+                                                id=f'download-page-button-{self.name}',
+                                                color="link",
+                                            ),
+                                            dcc.Download(
+                                                f'download-page-{self.name}'
+                                            ),
+                                        ],
+                                        style={
+                                            'display': 'flex',
+                                            'justify-content': 'flex-end',
+                                        },
+                                    )
+                                ],
+                                md="auto",
+                                className="ml-auto",
+                                align="center",
+                            ),
+                            hide=self.header_hide_download,
+                        ),
+                    ],
+                    justify="start",
+                ),
+                self.page_layout,
+                dbc.Row(
+                    [
+                        make_hideable(
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        [
+                                            html.Small("powered by: "),
+                                            html.Small(
+                                                html.A(
+                                                    "explainerdashboard",
+                                                    className="text-muted",
+                                                    target='_blank',
+                                                    href="https://github.com/oegedijk/explainerdashboard",
+                                                )
+                                            ),
+                                        ]
+                                    ),
+                                ],
+                                md="3",
+                            ),
+                            hide=self.hide_poweredby,
+                        ),
+                    ],
+                    justify="end",
+                ),
+            ],
+            fluid=self.fluid,
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         html = to_html.title(self.title)
         html += self.page.to_html(state_dict, add_header=False)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def register_callbacks(self, app):
         """Register callbacks of page"""
@@ -307,11 +417,7 @@ class ExplainerPageLayout(ExplainerComponent):
                     "If so set block_selector_callbacks=True.")
             self.connector.register_callbacks(app)
 
-        @app.callback(
-            Output('download-page-'+self.name, 'data'),
-            [Input('download-page-button-'+self.name, 'n_clicks')],
-            [State(id_, prop_) for id_, prop_ in self.page.get_state_tuples()]
-        )
+        @app.callback(Output(f'download-page-{self.name}', 'data'), [Input(f'download-page-button-{self.name}', 'n_clicks')], [State(id_, prop_) for id_, prop_ in self.page.get_state_tuples()])
         def download_html(n_clicks, *args):
             if n_clicks is not None:
                 state_dict = dict(zip(self.get_state_tuples(), args))
@@ -473,19 +579,20 @@ class ExplainerDashboard:
         try:
             ipython_kernel = str(get_ipython())
             self.is_notebook = True
-            self.is_colab = True if 'google.colab' in ipython_kernel else False
+            self.is_colab = 'google.colab' in ipython_kernel
         except:
             self.is_notebook, self.is_colab = False, False
 
-        if self.mode == 'dash' and self.is_colab:
-            print("Detected google colab environment, setting mode='external'", flush=True)
-            self.mode = 'external'
-        elif self.mode == 'dash' and self.is_notebook:
-            print("Detected notebook environment, consider setting "
-                    "mode='external', mode='inline' or mode='jupyterlab' "
-                    "to keep the notebook interactive while the dashboard "
-                    "is running...", flush=True)
-        
+        if self.mode == 'dash':
+            if self.is_colab:
+                print("Detected google colab environment, setting mode='external'", flush=True)
+                self.mode = 'external'
+            elif self.is_notebook:
+                print("Detected notebook environment, consider setting "
+                        "mode='external', mode='inline' or mode='jupyterlab' "
+                        "to keep the notebook interactive while the dashboard "
+                        "is running...", flush=True)
+
         if self.bootstrap is not None:
             bootstrap_theme = self.bootstrap if isinstance(self.bootstrap, str) else dbc.themes.BOOTSTRAP
             if self.external_stylesheets is None:
@@ -500,20 +607,20 @@ class ExplainerDashboard:
                 self.logins = [logins]
                 self._stored_params['logins'] = self.logins
             assert isinstance(self.logins, list), \
-                ("Parameter logins should be a list of lists of str pairs, e.g."
+                    ("Parameter logins should be a list of lists of str pairs, e.g."
                  " logins=[['user1', 'password1'], ['user2', 'password2']]!")
             for login in self.logins:
                 assert isinstance(login, list), \
-                    ("Parameter logins should be a list of lists of str pairs, "
+                        ("Parameter logins should be a list of lists of str pairs, "
                      "e.g. logins=[['user1', 'password1'], ['user2', 'password2']]!")
                 assert isinstance(login[0], str) and isinstance(login[1], str), \
-                    ("For logins such as [['user1', 'password1']] user1 and "
+                        ("For logins such as [['user1', 'password1']] user1 and "
                      "password1 should be type(str)!")
             self.auth = dash_auth.BasicAuth(self.app, self.logins)
         self.app.title = title
 
         assert 'BaseExplainer' in str(explainer.__class__.mro()), \
-            ("explainer should be an instance of BaseExplainer, such as "
+                ("explainer should be an instance of BaseExplainer, such as "
             "ClassifierExplainer or RegressionExplainer!")
 
         if tabs is None:
@@ -537,7 +644,7 @@ class ExplainerDashboard:
                     print("The explainer object has no decision_trees property. so "
                             "setting decision_trees=False...", flush=True)
                     decision_trees = False
-            
+
                 if importances:
                     tabs.append(ImportancesComposite)
                 if model_summary:
@@ -564,7 +671,7 @@ class ExplainerDashboard:
             self.header_hide_selector = True
             self.header_hide_download = True
 
-        print("Generating layout...") 
+        print("Generating layout...")
         _, i = yield_id(return_i=True) # store id generator index
         reset_id_generator("db") # reset id generator to 0 with prefix "db"
         if hasattr(self.explainer, "_index_list"):
@@ -598,7 +705,7 @@ class ExplainerDashboard:
         self.app.layout = self.explainer_layout.layout()
         reset_id_generator(start=i+1) # reset id generator to previous index
 
-        print("Calculating dependencies...", flush=True)  
+        print("Calculating dependencies...", flush=True)
         self.explainer_layout.calculate_dependencies()
         print("Reminder: you can store the explainer (including calculated "
                 "dependencies) with explainer.dump('explainer.joblib') and "
@@ -657,9 +764,9 @@ class ExplainerDashboard:
             elif isinstance(arg1, dict):
                 config = arg1
                 assert 'dashboard' in config, \
-                    ".yaml file does not have `dashboard` param."
+                        ".yaml file does not have `dashboard` param."
                 assert 'explainerfile' in config['dashboard'], \
-                    ".yaml file does not have explainerfile param"
+                        ".yaml file does not have explainerfile param"
 
             explainer = BaseExplainer.from_file(config['dashboard']['explainerfile'])
         else:
@@ -692,17 +799,12 @@ class ExplainerDashboard:
             else:
                 dashboard_params['kwargs'] = dict(k=v)
 
-        if 'kwargs' in dashboard_params:
-            kwargs = dashboard_params.pop('kwargs')
-        else:
-            kwargs = {}
-
-        if 'tabs' in dashboard_params:
-            tabs = cls._yamltabs_to_tabs(dashboard_params['tabs'], explainer)
-            del dashboard_params['tabs']
-            return cls(explainer, tabs, **dashboard_params, **kwargs)
-        else:
+        kwargs = dashboard_params.pop('kwargs') if 'kwargs' in dashboard_params else {}
+        if 'tabs' not in dashboard_params:
             return cls(explainer, **dashboard_params, **kwargs)
+        tabs = cls._yamltabs_to_tabs(dashboard_params['tabs'], explainer)
+        del dashboard_params['tabs']
+        return cls(explainer, tabs, **dashboard_params, **kwargs)
 
     def to_yaml(self, filepath=None, return_dict=False,
                 explainerfile="explainer.joblib", dump_explainer=False):
@@ -772,17 +874,16 @@ class ExplainerDashboard:
 
         if 'kwargs' in frame.f_locals:
             args_dict['kwargs'] = frame.f_locals['kwargs']
-        
+
         if isinstance(no_store, bool) and no_store:
             return
-        else:
-            if no_store is None: no_store = tuple()
-        
+        if no_store is None: no_store = tuple()
+
         if isinstance(no_attr, bool) and no_attr: dont_attr = True
         else:
             if no_attr is None: no_attr = tuple()
             dont_attr = False 
-            
+
         if isinstance(no_param, bool) and no_param: dont_param = True
         else:
             if no_param is None: no_param = tuple()
@@ -798,23 +899,24 @@ class ExplainerDashboard:
 
     def _convert_str_tabs(self, component):
         if isinstance(component, str):
-            if component == 'importances':
+            if component == 'contributions':
+                return IndividualPredictionsComposite
+            elif component == 'decision_trees':
+                return  DecisionTreesComposite
+            elif component == 'importances':
                 return ImportancesComposite
             elif component == 'model_summary':
-                if self.explainer.is_classifier:
-                    return ClassifierModelStatsComposite
-                else:
-                    return RegressionModelStatsComposite
-            elif component == 'contributions':
-                return IndividualPredictionsComposite
-            elif component == 'whatif':
-                return WhatIfComposite
+                return (
+                    ClassifierModelStatsComposite
+                    if self.explainer.is_classifier
+                    else RegressionModelStatsComposite
+                )
             elif component == 'shap_dependence':
                 return ShapDependenceComposite
             elif component == 'shap_interaction':
                 return ShapInteractionsComposite
-            elif component == 'decision_trees':
-                return  DecisionTreesComposite
+            elif component == 'whatif':
+                return WhatIfComposite
         return component
 
     @staticmethod
@@ -840,12 +942,13 @@ class ExplainerDashboard:
                     component_imports = component_imports
                     )
             else:
-                raise ValueError(f"Please only pass strings or ExplainerComponents to parameter `tabs`!"
-                                "You passed {component.__class__}")
+                raise ValueError(
+                    'Please only pass strings or ExplainerComponents to parameter `tabs`!You passed {component.__class__}'
+                )
 
         if not hasattr(tabs, "__iter__"):
             return tabs if isinstance(tabs, str) else get_name_and_module(tabs)
-            
+
         return [tab if isinstance(tab, str) else get_name_and_module(tab) for tab in tabs]
 
     @staticmethod
@@ -867,19 +970,18 @@ class ExplainerDashboard:
                 tab_class = getattr(import_module(tab['module']), tab['name'])
                 if tab['params'] is None:
                     return tab_class
-                else:
-                    if not 'name' in tab['params'] or tab['params']['name'] is None:
-                        tab['params']['name'] = name
+                if 'name' not in tab['params'] or tab['params']['name'] is None:
+                    tab['params']['name'] = name
 
-                    tab['params'] = decode_callables(tab['params'])
-                    tab_instance = tab_class(explainer, **tab['params'])
-                    return tab_instance
+                tab['params'] = decode_callables(tab['params'])
+                tab_instance = tab_class(explainer, **tab['params'])
+                return tab_instance
             else:
                 raise ValueError("yaml tab should be either string, e.g. 'importances', "
                         "or a dict(name=..,module=..,params=...)")
-        
+
         if not hasattr(yamltabs, "__iter__"):
-            return instantiate_tab(yamltabs, explainer, name="1") 
+            return instantiate_tab(yamltabs, explainer, name="1")
         tabs = [instantiate_tab(tab, explainer, name=str(i+1))  for i, tab in enumerate(yamltabs)]
         print(tabs)
         return tabs
@@ -892,11 +994,8 @@ class ExplainerDashboard:
                 ]
         else:
             meta_tags = None
-        
-        if self.bootstrap is not None:
-            assets_ignore = '^bootstrap.min.css$' 
-        else:
-            assets_ignore = ""
+
+        assets_ignore = '^bootstrap.min.css$' if self.bootstrap is not None else ""
         if self.mode=="dash":
             app = dash.Dash(__name__,
                             server=self.server, 
@@ -1261,7 +1360,7 @@ class ExplainerHub:
                 self.add_user_to_dashboard(dashboard.name, user)
         config = deepcopy(dashboard.to_yaml(return_dict=True))
         config['dashboard']['params']['logins'] = None
-                            
+
         self.dashboards.append(
             ExplainerDashboard.from_config(
                 dashboard.explainer, config, **update_kwargs(kwargs, **update_params)))
@@ -1271,18 +1370,19 @@ class ExplainerHub:
         if (self.users and 
             (not self.dbs_open_by_default or dashboard.name in self.dashboards_with_users)):
                 self._protect_dashviews(dashboard.app, username=self.get_dashboard_users(dashboard.name))
-                
-        if not self.no_index:    
+
+        if not self.no_index:
             self.index_page = self._get_index_page()
             if self.users and not self.dbs_open_by_default:
                 self._protect_dashviews(self.index_page)
-            
+
             def dashboard_route(dashboard):
                 def inner():
                     return self._hub_page(f"/{self.base_route}/{dashboard.name}/")
-                inner.__name__ = "return_dashboard_"+dashboard.name
+
+                inner.__name__ = f"return_dashboard_{dashboard.name}"
                 return inner
-            
+
         if self.users:
             self.app.route(f"/{self.base_route}/_{dashboard.name}")(login_required(dashboard_route(dashboard)))
         else:
@@ -1354,37 +1454,49 @@ class ExplainerHub:
             {dict, yaml, None}
         """
         filepath = Path(filepath)
-        
+
         self._dump_all_users_to_file(filepath.parent / str(self.users_file))
-            
+
         if filepath is None or return_dict or integrate_dashboard_yamls:
             hub_config = dict(
                 explainerhub=dict(
                     **self._stored_params,
-                    dashboards=[dashboard.to_yaml(
-                        return_dict=True, 
-                        explainerfile=dashboard.name+"_explainer.joblib",
-                        dump_explainer=dump_explainers) 
-                                for dashboard in self.dashboards]))
+                    dashboards=[
+                        dashboard.to_yaml(
+                            return_dict=True,
+                            explainerfile=f"{dashboard.name}_explainer.joblib",
+                            dump_explainer=dump_explainers,
+                        )
+                        for dashboard in self.dashboards
+                    ],
+                )
+            )
         else:
             for dashboard in self.dashboards:
                 print(f"Storing {dashboard.name}_dashboard.yaml...")
-                dashboard.to_yaml(filepath.parent / (dashboard.name+"_dashboard.yaml"),
-                        explainerfile=filepath.parent / (dashboard.name+f"_explainer.{pickle_type}"),
-                        dump_explainer=dump_explainers)
+                dashboard.to_yaml(
+                    filepath.parent / f"{dashboard.name}_dashboard.yaml",
+                    explainerfile=filepath.parent
+                    / f"{dashboard.name}_explainer.{pickle_type}",
+                    dump_explainer=dump_explainers,
+                )
             hub_config = dict(
                 explainerhub=dict(
                     **self._stored_params,
-                    dashboards=[dashboard.name+"_dashboard.yaml"
-                                for dashboard in self.dashboards]))
-                
+                    dashboards=[
+                        f"{dashboard.name}_dashboard.yaml"
+                        for dashboard in self.dashboards
+                    ],
+                )
+            )
+
         if return_dict:
             return hub_config
-        
+
         if filepath is None:
             return yaml.dump(hub_config)
-        
-        filepath = Path(filepath)  
+
+        filepath = Path(filepath)
         print(f"Storing {filepath}...")
         yaml.dump(hub_config, open(filepath, "w"))
         return
@@ -1417,17 +1529,16 @@ class ExplainerHub:
 
         if 'kwargs' in frame.f_locals:
             args_dict['kwargs'] = frame.f_locals['kwargs']
-        
+
         if isinstance(no_store, bool) and no_store:
             return
-        else:
-            if no_store is None: no_store = tuple()
-        
+        if no_store is None: no_store = tuple()
+
         if isinstance(no_attr, bool) and no_attr: dont_attr = True
         else:
             if no_attr is None: no_attr = tuple()
             dont_attr = False 
-            
+
         if isinstance(no_param, bool) and no_param: dont_param = True
         else:
             if no_param is None: no_param = tuple()
@@ -1480,24 +1591,25 @@ class ExplainerHub:
         """validat that user_json is a well formed .json file. 
         If it does not exist, then create an empty .json file.
         """
-        if users_file is not None:
-            if not Path(users_file).exists():
-                users_db = dict(users={}, dashboard_users={})
-                if str(users_file).endswith(".json"):
-                    json.dump(users_db, open(Path(users_file), 'w'))
-                elif str(users_file).endswith(".yaml"):
-                    yaml.dump(users_db, open(Path(users_file), "w"))
-                    
+        if users_file is None:
+            return
+        if not Path(users_file).exists():
+            users_db = dict(users={}, dashboard_users={})
             if str(users_file).endswith(".json"):
-                users_db = json.load(open(Path(users_file)))
+                json.dump(users_db, open(Path(users_file), 'w'))
             elif str(users_file).endswith(".yaml"):
-                users_db = yaml.safe_load(open(str(users_file), "r"))
-            else:
-                raise ValueError("users_file should end with either .json or .yaml!")
-                
-            assert 'users' in users_db, \
+                yaml.dump(users_db, open(Path(users_file), "w"))
+
+        if str(users_file).endswith(".json"):
+            users_db = json.load(open(Path(users_file)))
+        elif str(users_file).endswith(".yaml"):
+            users_db = yaml.safe_load(open(str(users_file), "r"))
+        else:
+            raise ValueError("users_file should end with either .json or .yaml!")
+
+        assert 'users' in users_db, \
                 f"{self.users_file} should contain a 'users' dict!"
-            assert 'dashboard_users' in users_db, \
+        assert 'dashboard_users' in users_db, \
                 f"{self.users_file} should contain a 'dashboard_users' dict!"
                
     def _hash_logins(self, logins:List[List], add_to_users_file:bool=False):
@@ -1648,11 +1760,10 @@ class ExplainerHub:
         users_db = ExplainerHub._load_users_db(users_file)
         dashboard_users = users_db['dashboard_users'].get(dashboard)
         if dashboard_users is not None:
-            dashboard_users = sorted(list(set(dashboard_users)  - {username}))
-            if not dashboard_users:
-                del users_db['dashboard_users'][dashboard] 
-            else:
+            if dashboard_users := sorted(list(set(dashboard_users) - {username})):
                 users_db['dashboard_users'][dashboard] = dashboard_users
+            else:
+                del users_db['dashboard_users'][dashboard]
             ExplainerHub._dump_users_db(users_db, users_file)
           
     def add_user(self, username:str, password:str, add_to_users_file:bool=False):
@@ -1715,13 +1826,14 @@ class ExplainerHub:
         """return a dict with the list of users per dashboard"""
         dashboard_users = {}
         if self.users_file is not None and Path(self.users_file).exists():
-            dashboard_users.update(self._load_users_db(self.users_file)['dashboard_users'])
+            dashboard_users |= self._load_users_db(self.users_file)['dashboard_users']
         if self.db_users is not None:
             for dashboard, users in self.db_users.items():
-                if not dashboard in dashboard_users:
-                    dashboard_users[dashboard] = users
-                else:
-                    dashboard_users[dashboard] = sorted(list(set(dashboard_users[dashboard] + users)))
+                dashboard_users[dashboard] = (
+                    sorted(list(set(dashboard_users[dashboard] + users)))
+                    if dashboard in dashboard_users
+                    else users
+                )
         return dashboard_users
         
     def get_dashboard_users(self, dashboard:str):
@@ -1766,9 +1878,7 @@ class ExplainerHub:
             stored_password = users_db[user['username']]['password']
         else:
             stored_password = self.logins[user['username']]['password']
-        if check_password_hash(stored_password, user['password']):
-            return True
-        return False
+        return bool(check_password_hash(stored_password, user['password']))
     
     @staticmethod
     def _protect_dashviews(dashapp:dash.Dash, username:List[str]=None):
@@ -1881,11 +1991,27 @@ class ExplainerHub:
             n_last_row = len(dashboards) % n_cols
             card_decks = []
             for i in range(0, full_rows*n_cols, n_cols):
-                card_decks.append([to_html.dashboard_card(dashboard.title, dashboard.description, dashboard.name+".html") 
-                                        for dashboard in dashboards[i:i+n_cols]])
+                card_decks.append(
+                    [
+                        to_html.dashboard_card(
+                            dashboard.title,
+                            dashboard.description,
+                            f"{dashboard.name}.html",
+                        )
+                        for dashboard in dashboards[i : i + n_cols]
+                    ]
+                )
             if n_last_row > 0:
-                last_row = [to_html.dashboard_card(dashboard.title, dashboard.description, dashboard.name+".html") 
-                                for dashboard in dashboards[full_rows*n_cols:full_rows*n_cols+n_last_row]]
+                last_row = [
+                    to_html.dashboard_card(
+                        dashboard.title,
+                        dashboard.description,
+                        f"{dashboard.name}.html",
+                    )
+                    for dashboard in dashboards[
+                        full_rows * n_cols : full_rows * n_cols + n_last_row
+                    ]
+                ]
                 for i in range(len(last_row), n_cols):
                     last_row.append(to_html.card("", border=False))
                 card_decks.append(last_row)
@@ -1912,7 +2038,7 @@ class ExplainerHub:
         if save_dashboards:
             for db in self.dashboards:
                 print(f"Saving dashboard {db.name} to {db.name}.html...")
-                db.save_html(db.name+".html")
+                db.save_html(f"{db.name}.html")
 
     def to_zip(self, filename:Union[str, Path], name:str="explainerhub"):
         """Store static version of ExplainerHub to a zipfile along with static 
@@ -1926,7 +2052,7 @@ class ExplainerHub:
         zf = zipfile.ZipFile(Path(filename), 'w')
         zf.writestr(f'/{name}/index.html', self.to_html())
         for db in self.dashboards: 
-            zf.writestr(f'/{name}/' + db.name+".html", db.to_html())
+            zf.writestr(f'/{name}/{db.name}.html', db.to_html())
         zf.close()
         print(f"Saved static html version of ExplainerHub to {filename}...")
 
@@ -1958,7 +2084,7 @@ class ExplainerHub:
         <body class="d-flex flex-column min-vh-100">
             <div class="container{'-fluid' if self.fluid else ''}">
             <nav class="navbar navbar-expand-lg navbar-light bg-light">
-                <a class="navbar-brand" href="{self.index_route if not static else '#'}">{self.title}</a>
+                <a class="navbar-brand" href="{'#' if static else self.index_route}">{self.title}</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -1973,7 +2099,7 @@ class ExplainerHub:
                             {"".join([f'<a class="dropdown-item" href="{url}">{name}</a>' for url, name in dbs])}
                             </div>
                         </li>
-                        {'<li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>' if not static else ''}
+                        {'' if static else '<li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>'}
                     </ul>
                 </div>
             </nav>
@@ -2009,26 +2135,28 @@ class ExplainerHub:
             @login_required
             def index_route():
                 return self._hub_page(f"{self.hub_base_url}")
-            
+
             def dashboard_route(dashboard):
                 def inner():
                     return self._hub_page(f"/{self.base_route}/{dashboard.name}/")
-                inner.__name__ = "return_dashboard_"+dashboard.name
+
+                inner.__name__ = f"return_dashboard_{dashboard.name}"
                 return inner
-            
+
             for dashboard in self.dashboards:
                 app.route(f"/{self.base_route}/_{dashboard.name}")(login_required(dashboard_route(dashboard)))
         else:
             @app.route(f"{self.index_route}")
             def index_route():
                 return self._hub_page(f"{self.hub_base_url}")
-            
+
             def dashboard_route(dashboard):
                 def inner():
                     return self._hub_page(f"/{self.base_route}/{dashboard.name}/")
-                inner.__name__ = "return_dashboard_"+dashboard.name
+
+                inner.__name__ = f"return_dashboard_{dashboard.name}"
                 return inner
-            
+
             for dashboard in self.dashboards:
                 app.route(f"/{self.base_route}/_{dashboard.name}")(dashboard_route(dashboard))
 
@@ -2057,7 +2185,7 @@ class ExplainerHub:
                     except:
                         print("ERROR: Failed to add dashboard!", flush=True)
                     return redirect("/", code=302)
-                    
+
                 remove_dashboard_match = remove_dashboard_pattern.match(request.path)
                 if remove_dashboard_match:
                     try:
@@ -2066,7 +2194,7 @@ class ExplainerHub:
                             self.remove_dashboard(dashboard_name)
                     except:
                         print("ERROR: Failed to remove dashboard!", flush=True)
-                    return redirect(f"/", code=302)
+                    return redirect("/", code=302)
 
 
 

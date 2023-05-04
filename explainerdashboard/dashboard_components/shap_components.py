@@ -71,7 +71,7 @@ class ShapSummaryComponent(ExplainerComponent):
         if self.depth is not None:
             self.depth = min(self.depth, self.explainer.n_features)
 
-        self.index_name = 'shap-summary-index-'+self.name
+        self.index_name = f'shap-summary-index-{self.name}'
         self.selector = PosLabelSelector(explainer, name=self.name, pos_label=pos_label)
         assert self.summary_type in {'aggregate', 'detailed'}
         if self.description is None: self.description = """
@@ -81,80 +81,177 @@ class ShapSummaryComponent(ExplainerComponent):
         feature and how they correlate the the feature value (red is high).
         """
 
-        self.popout = GraphPopout('shap-summary-'+self.name+'popout', 
-                            'shap-summary-graph-'+self.name, self.title, self.description)
+        self.popout = GraphPopout(
+            f'shap-summary-{self.name}popout',
+            f'shap-summary-graph-{self.name}',
+            self.title,
+            self.description,
+        )
         self.register_dependencies('shap_values_df')
              
     def layout(self):
-        return dbc.Card([
-            make_hideable(
-                dbc.CardHeader([
-                    html.Div([
-                        html.H3(self.title, id='shap-summary-title-'+self.name),
-                        make_hideable(html.H6(self.subtitle, className='card-subtitle'), hide=self.hide_subtitle),
-                        dbc.Tooltip(self.description, target='shap-summary-title-'+self.name),
-                    ]), 
-                ]), hide=self.hide_title),
-            dbc.CardBody([
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.Label("Depth:", id='shap-summary-depth-label-'+self.name),
-                            dbc.Tooltip("Number of features to display", 
-                                        target='shap-summary-depth-label-'+self.name),
-                            dbc.Select(id='shap-summary-depth-'+self.name,
-                                options=[{'label': str(i+1), 'value': i+1} for i in 
-                                            range(self.explainer.n_features)],
-                                value=self.depth)
-                        ], md=2), self.hide_depth),
-                    make_hideable(
-                        dbc.Col([
-                            dbc.FormGroup(
+        return dbc.Card(
+            [
+                make_hideable(
+                    dbc.CardHeader(
+                        [
+                            html.Div(
                                 [
-                                    dbc.Label("Summary Type", id='shap-summary-type-label-'+self.name),
-                                    dbc.Tooltip("Display mean absolute SHAP value per feature (aggregate)"
-                                                " or display every single shap value per feature (detailed)", 
-                                                target='shap-summary-type-label-'+self.name),
-                                    dbc.Select(
-                                        options=[
-                                            {"label": "Aggregate", "value": "aggregate"},
-                                            {"label": "Detailed", "value": "detailed"},
-                                        ],
-                                        value=self.summary_type,
-                                        id="shap-summary-type-"+self.name,
+                                    html.H3(
+                                        self.title,
+                                        id=f'shap-summary-title-{self.name}',
+                                    ),
+                                    make_hideable(
+                                        html.H6(
+                                            self.subtitle,
+                                            className='card-subtitle',
+                                        ),
+                                        hide=self.hide_subtitle,
+                                    ),
+                                    dbc.Tooltip(
+                                        self.description,
+                                        target=f'shap-summary-title-{self.name}',
                                     ),
                                 ]
                             )
-                        ]), self.hide_type),
-                    make_hideable(
-                        dbc.Col([
-                            html.Div([
-                                dbc.Label(f"{self.explainer.index_name}:", id='shap-summary-index-label-'+self.name),
-                                dbc.Tooltip(f"Select {self.explainer.index_name} to highlight in plot. "
-                                            "You can also select by clicking on a scatter point in the graph.", 
-                                            target='shap-summary-index-label-'+self.name),
-                                dcc.Dropdown(id='shap-summary-index-'+self.name, 
-                                    options = [{'label': str(idx), 'value':idx} 
-                                                    for idx in self.explainer.idxs],
-                                    value=self.index),
-                            ], id='shap-summary-index-col-'+self.name, style=dict(display="none")), 
-                        ], md=3), hide=self.hide_index),  
-                    make_hideable(
-                            dbc.Col([self.selector.layout()
-                        ], width=2), hide=self.hide_selector),
-                    
-                    ], form=True),
-                dcc.Loading(id="loading-dependence-shap-summary-"+self.name, 
-                        children=[dcc.Graph(id="shap-summary-graph-"+self.name,
-                                            config=dict(modeBarButtons=[['toImage']], displaylogo=False))]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            self.popout.layout()
-                        ], md=2, align="start"), hide=self.hide_popout),
-                ], justify="end"),
-            ]),
-        ])
+                        ]
+                    ),
+                    hide=self.hide_title,
+                ),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                "Depth:",
+                                                id=f'shap-summary-depth-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Number of features to display",
+                                                target=f'shap-summary-depth-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'shap-summary-depth-{self.name}',
+                                                options=[
+                                                    {
+                                                        'label': str(i + 1),
+                                                        'value': i + 1,
+                                                    }
+                                                    for i in range(
+                                                        self.explainer.n_features
+                                                    )
+                                                ],
+                                                value=self.depth,
+                                            ),
+                                        ],
+                                        md=2,
+                                    ),
+                                    self.hide_depth,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.FormGroup(
+                                                [
+                                                    dbc.Label(
+                                                        "Summary Type",
+                                                        id=f'shap-summary-type-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "Display mean absolute SHAP value per feature (aggregate)"
+                                                        " or display every single shap value per feature (detailed)",
+                                                        target=f'shap-summary-type-label-{self.name}',
+                                                    ),
+                                                    dbc.Select(
+                                                        options=[
+                                                            {
+                                                                "label": "Aggregate",
+                                                                "value": "aggregate",
+                                                            },
+                                                            {
+                                                                "label": "Detailed",
+                                                                "value": "detailed",
+                                                            },
+                                                        ],
+                                                        value=self.summary_type,
+                                                        id=f"shap-summary-type-{self.name}",
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    ),
+                                    self.hide_type,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        f"{self.explainer.index_name}:",
+                                                        id=f'shap-summary-index-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        f"Select {self.explainer.index_name} to highlight in plot. You can also select by clicking on a scatter point in the graph.",
+                                                        target=f'shap-summary-index-label-{self.name}',
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id=f'shap-summary-index-{self.name}',
+                                                        options=[
+                                                            {
+                                                                'label': str(idx),
+                                                                'value': idx,
+                                                            }
+                                                            for idx in self.explainer.idxs
+                                                        ],
+                                                        value=self.index,
+                                                    ),
+                                                ],
+                                                id=f'shap-summary-index-col-{self.name}',
+                                                style=dict(display="none"),
+                                            )
+                                        ],
+                                        md=3,
+                                    ),
+                                    hide=self.hide_index,
+                                ),
+                                make_hideable(
+                                    dbc.Col([self.selector.layout()], width=2),
+                                    hide=self.hide_selector,
+                                ),
+                            ],
+                            form=True,
+                        ),
+                        dcc.Loading(
+                            id=f"loading-dependence-shap-summary-{self.name}",
+                            children=[
+                                dcc.Graph(
+                                    id=f"shap-summary-graph-{self.name}",
+                                    config=dict(
+                                        modeBarButtons=[['toImage']],
+                                        displaylogo=False,
+                                    ),
+                                )
+                            ],
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [self.popout.layout()], md=2, align="start"
+                                    ),
+                                    hide=self.hide_popout,
+                                ),
+                            ],
+                            justify="end",
+                        ),
+                    ]
+                ),
+            ]
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         args = self.get_state_args(state_dict)
@@ -166,30 +263,23 @@ class ShapSummaryComponent(ExplainerComponent):
             fig = self.explainer.plot_importances_detailed(
                     topx=args['depth'], pos_label=args['pos_label'], highlight_index=args['index'], 
                     max_cat_colors=self.max_cat_colors, plot_sample=self.plot_sample)
-        
+
         html = to_html.card(fig.to_html(include_plotlyjs='cdn', full_html=False), title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
     
     def component_callbacks(self, app):
-        @app.callback(
-            Output('shap-summary-index-'+self.name, 'value'),
-            [Input('shap-summary-graph-'+self.name, 'clickData')])
+        @app.callback(Output(f'shap-summary-index-{self.name}', 'value'), [Input(f'shap-summary-graph-{self.name}', 'clickData')])
         def display_scatter_click_data(clickdata):
-            if clickdata is not None and clickdata['points'][0] is not None:
-                if isinstance(clickdata['points'][0]['y'], float): # detailed
-                    index = clickdata['points'][0]['text'].split('=')[1].split('<br>')[0]                 
-                    return index
+            if (
+                clickdata is not None
+                and clickdata['points'][0] is not None
+                and isinstance(clickdata['points'][0]['y'], float)
+            ):
+                index = clickdata['points'][0]['text'].split('=')[1].split('<br>')[0]
+                return index
             raise PreventUpdate
 
-        @app.callback(
-            [Output('shap-summary-graph-'+self.name, 'figure'),
-             Output('shap-summary-index-col-'+self.name, 'style')],
-            [Input('shap-summary-type-'+self.name, 'value'),
-             Input('shap-summary-depth-'+self.name, 'value'),
-             Input('shap-summary-index-'+self.name, 'value'),
-             Input('pos-label-'+self.name, 'value')])
+        @app.callback([Output(f'shap-summary-graph-{self.name}', 'figure'), Output(f'shap-summary-index-col-{self.name}', 'style')], [Input(f'shap-summary-type-{self.name}', 'value'), Input(f'shap-summary-depth-{self.name}', 'value'), Input(f'shap-summary-index-{self.name}', 'value'), Input(f'pos-label-{self.name}', 'value')])
         def update_shap_summary_graph(summary_type, depth, index, pos_label):
 
             depth = None if depth is None else int(depth)
@@ -205,7 +295,7 @@ class ShapSummaryComponent(ExplainerComponent):
 
             ctx = dash.callback_context
             trigger = ctx.triggered[0]['prop_id'].split('.')[0]
-            if trigger == 'shap-summary-type-'+self.name:
+            if trigger == f'shap-summary-type-{self.name}':
                 if summary_type == 'aggregate':
                     return (plot, dict(display="none"))
                 elif summary_type == 'detailed':
@@ -286,8 +376,8 @@ class ShapDependenceComponent(ExplainerComponent):
             self.color_col = self.explainer.top_shap_interactions(self.col)[1]
 
         self.selector = PosLabelSelector(explainer, name=self.name, pos_label=pos_label)
-        
-        self.index_name = 'shap-dependence-index-'+self.name
+
+        self.index_name = f'shap-dependence-index-{self.name}'
 
         if self.description is None: self.description = """
         This plot shows the relation between feature values and shap values.
@@ -297,118 +387,285 @@ class ShapDependenceComponent(ExplainerComponent):
         about the relationships that the model has learned between the input features
         and the predicted outcome.
         """
-        self.popout = GraphPopout('shap-dependence-'+self.name+'popout', 
-                            'shap-dependence-graph-'+self.name, self.title, self.description)
+        self.popout = GraphPopout(
+            f'shap-dependence-{self.name}popout',
+            f'shap-dependence-graph-{self.name}',
+            self.title,
+            self.description,
+        )
         self.register_dependencies('shap_values_df')
              
     def layout(self):
-        return dbc.Card([
-            make_hideable(
-                dbc.CardHeader([
-                        html.Div([
-                            html.H3(self.title, id='shap-dependence-title-'+self.name),
-                            make_hideable(html.H6(self.subtitle, className='card-subtitle'), hide=self.hide_subtitle),
-                            dbc.Tooltip(self.description, target='shap-dependence-title-'+self.name),
-                        ]), 
-                ]), hide=self.hide_title),
-            dbc.CardBody([
-                dbc.Row([
-                    make_hideable(
-                            dbc.Col([self.selector.layout()
-                        ], width=2), hide=self.hide_selector),  
-                ]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.Label('Feature:', id='shap-dependence-col-label-'+self.name),
-                            dbc.Tooltip("Select feature to display shap dependence for", 
-                                        target='shap-dependence-col-label-'+self.name),
-                            dbc.Select(id='shap-dependence-col-'+self.name, 
-                                options=[{'label': col, 'value':col} 
-                                            for col in self.explainer.columns_ranked_by_shap()],
-                                value=self.col)
-                        ], md=3), self.hide_col),
-                    make_hideable(dbc.Col([
-                            html.Label('Color feature:', id='shap-dependence-color-col-label-'+self.name),
-                            dbc.Tooltip("Select feature to color the scatter markers by. This "
-                                        "allows you to see interactions between various features in the graph.", 
-                                        target='shap-dependence-color-col-label-'+self.name),
-                            dbc.Select(id='shap-dependence-color-col-'+self.name, 
-                                options=[{'label': col, 'value':col} 
-                                            for col in self.explainer.columns_ranked_by_shap()]+[dict(label="None", value="no_color_col")],
-                                value=self.color_col),   
-                    ], md=3), self.hide_color_col),
-                    make_hideable(
-                        dbc.Col([
-                            dbc.Label(f"{self.explainer.index_name}:", id='shap-dependence-index-label-'+self.name),
-                            dbc.Tooltip(f"Select {self.explainer.index_name} to highlight in the plot."
-                                        "You can also select by clicking on a scatter marker in the accompanying"
-                                        " shap summary plot (detailed).", 
-                                        target='shap-dependence-index-label-'+self.name),
-                            dcc.Dropdown(id='shap-dependence-index-'+self.name, 
-                                options = [{'label': str(idx), 'value':idx} 
-                                                for idx in self.explainer.idxs],
-                                value=self.index)
-                        ], md=4), hide=self.hide_index),          
-                ], form=True),
-                dcc.Loading(id="loading-dependence-graph-"+self.name, 
-                            children=[
-                                dcc.Graph(id='shap-dependence-graph-'+self.name,
-                                    config=dict(modeBarButtons=[['toImage']], displaylogo=False))]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            self.popout.layout()
-                        ], md=2, align="start"), hide=self.hide_popout),
-                ], justify="end"),
-            ]), 
-            make_hideable(
-                dbc.CardFooter([
-                    dbc.Row([
-                        make_hideable(
-                            dbc.Col([
-                                dbc.FormGroup([
-                                    dbc.Tooltip("Remove outliers in feature (and color feature) from plot.",
-                                            target='shap-dependence-outliers-'+self.name),
-                                    dbc.Checklist(
-                                        options=[{"label":  "Remove outliers", "value": True}],
-                                        value=[True] if self.remove_outliers else [],
-                                        id='shap-dependence-outliers-'+self.name,
-                                        inline=True,
-                                        switch=True,
+        return dbc.Card(
+            [
+                make_hideable(
+                    dbc.CardHeader(
+                        [
+                            html.Div(
+                                [
+                                    html.H3(
+                                        self.title,
+                                        id=f'shap-dependence-title-{self.name}',
                                     ),
-                                ]),
-                            ], md=2), hide=self.hide_outliers),
-                        make_hideable(
-                            dbc.Col([
-                                html.Div([
-                                    dbc.Label("Categories:", id='shap-dependence-n-categories-label-'+self.name),
-                                    dbc.Tooltip("Maximum number of categories to display", 
-                                                target='shap-dependence-n-categories-label-'+self.name),
-                                    dbc.Input(id='shap-dependence-n-categories-'+self.name, 
-                                        value=self.cats_topx,
-                                        type="number", min=1, max=50, step=1),
-                                ], id='shap-dependence-categories-div1-'+self.name,
-                                    style={} if self.col in self.explainer.cat_cols else dict(display="none"))
-                            ], md=2), self.hide_cats_topx),
-                        make_hideable(
-                            dbc.Col([
-                                html.Div([
-                                    html.Label('Sort categories:', id='shap-dependence-categories-sort-label-'+self.name),
-                                    dbc.Tooltip("How to sort the categories: Alphabetically, most common "
-                                                "first (Frequency), or highest mean absolute SHAP value first (Shap impact)", 
-                                                target='shap-dependence-categories-sort-label-'+self.name),
-                                    dbc.Select(id='shap-dependence-categories-sort-'+self.name,
-                                            options = [{'label': 'Alphabetically', 'value': 'alphabet'},
-                                                        {'label': 'Frequency', 'value': 'freq'},
-                                                        {'label': 'Shap impact', 'value': 'shap'}],
-                                            value=self.cats_sort),
-                                ], id='shap-dependence-categories-div2-'+self.name,
-                                    style={} if self.col in self.explainer.cat_cols else dict(display="none"))
-                            ], md=4), hide=self.hide_cats_sort),
-                    ]) 
-                ]), hide=self.hide_footer),
-        ])
+                                    make_hideable(
+                                        html.H6(
+                                            self.subtitle,
+                                            className='card-subtitle',
+                                        ),
+                                        hide=self.hide_subtitle,
+                                    ),
+                                    dbc.Tooltip(
+                                        self.description,
+                                        target=f'shap-dependence-title-{self.name}',
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                    hide=self.hide_title,
+                ),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col([self.selector.layout()], width=2),
+                                    hide=self.hide_selector,
+                                ),
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                'Feature:',
+                                                id=f'shap-dependence-col-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Select feature to display shap dependence for",
+                                                target=f'shap-dependence-col-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'shap-dependence-col-{self.name}',
+                                                options=[
+                                                    {'label': col, 'value': col}
+                                                    for col in self.explainer.columns_ranked_by_shap()
+                                                ],
+                                                value=self.col,
+                                            ),
+                                        ],
+                                        md=3,
+                                    ),
+                                    self.hide_col,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Label(
+                                                'Color feature:',
+                                                id=f'shap-dependence-color-col-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Select feature to color the scatter markers by. This "
+                                                "allows you to see interactions between various features in the graph.",
+                                                target=f'shap-dependence-color-col-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'shap-dependence-color-col-{self.name}',
+                                                options=[
+                                                    {'label': col, 'value': col}
+                                                    for col in self.explainer.columns_ranked_by_shap()
+                                                ]
+                                                + [
+                                                    dict(
+                                                        label="None",
+                                                        value="no_color_col",
+                                                    )
+                                                ],
+                                                value=self.color_col,
+                                            ),
+                                        ],
+                                        md=3,
+                                    ),
+                                    self.hide_color_col,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                f"{self.explainer.index_name}:",
+                                                id=f'shap-dependence-index-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                f"Select {self.explainer.index_name} to highlight in the plot.You can also select by clicking on a scatter marker in the accompanying shap summary plot (detailed).",
+                                                target=f'shap-dependence-index-label-{self.name}',
+                                            ),
+                                            dcc.Dropdown(
+                                                id=f'shap-dependence-index-{self.name}',
+                                                options=[
+                                                    {
+                                                        'label': str(idx),
+                                                        'value': idx,
+                                                    }
+                                                    for idx in self.explainer.idxs
+                                                ],
+                                                value=self.index,
+                                            ),
+                                        ],
+                                        md=4,
+                                    ),
+                                    hide=self.hide_index,
+                                ),
+                            ],
+                            form=True,
+                        ),
+                        dcc.Loading(
+                            id=f"loading-dependence-graph-{self.name}",
+                            children=[
+                                dcc.Graph(
+                                    id=f'shap-dependence-graph-{self.name}',
+                                    config=dict(
+                                        modeBarButtons=[['toImage']],
+                                        displaylogo=False,
+                                    ),
+                                )
+                            ],
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [self.popout.layout()], md=2, align="start"
+                                    ),
+                                    hide=self.hide_popout,
+                                ),
+                            ],
+                            justify="end",
+                        ),
+                    ]
+                ),
+                make_hideable(
+                    dbc.CardFooter(
+                        [
+                            dbc.Row(
+                                [
+                                    make_hideable(
+                                        dbc.Col(
+                                            [
+                                                dbc.FormGroup(
+                                                    [
+                                                        dbc.Tooltip(
+                                                            "Remove outliers in feature (and color feature) from plot.",
+                                                            target=f'shap-dependence-outliers-{self.name}',
+                                                        ),
+                                                        dbc.Checklist(
+                                                            options=[
+                                                                {
+                                                                    "label": "Remove outliers",
+                                                                    "value": True,
+                                                                }
+                                                            ],
+                                                            value=[True]
+                                                            if self.remove_outliers
+                                                            else [],
+                                                            id=f'shap-dependence-outliers-{self.name}',
+                                                            inline=True,
+                                                            switch=True,
+                                                        ),
+                                                    ]
+                                                )
+                                            ],
+                                            md=2,
+                                        ),
+                                        hide=self.hide_outliers,
+                                    ),
+                                    make_hideable(
+                                        dbc.Col(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        dbc.Label(
+                                                            "Categories:",
+                                                            id=f'shap-dependence-n-categories-label-{self.name}',
+                                                        ),
+                                                        dbc.Tooltip(
+                                                            "Maximum number of categories to display",
+                                                            target=f'shap-dependence-n-categories-label-{self.name}',
+                                                        ),
+                                                        dbc.Input(
+                                                            id=f'shap-dependence-n-categories-{self.name}',
+                                                            value=self.cats_topx,
+                                                            type="number",
+                                                            min=1,
+                                                            max=50,
+                                                            step=1,
+                                                        ),
+                                                    ],
+                                                    id=f'shap-dependence-categories-div1-{self.name}',
+                                                    style={}
+                                                    if self.col
+                                                    in self.explainer.cat_cols
+                                                    else dict(display="none"),
+                                                )
+                                            ],
+                                            md=2,
+                                        ),
+                                        self.hide_cats_topx,
+                                    ),
+                                    make_hideable(
+                                        dbc.Col(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        html.Label(
+                                                            'Sort categories:',
+                                                            id=f'shap-dependence-categories-sort-label-{self.name}',
+                                                        ),
+                                                        dbc.Tooltip(
+                                                            "How to sort the categories: Alphabetically, most common "
+                                                            "first (Frequency), or highest mean absolute SHAP value first (Shap impact)",
+                                                            target=f'shap-dependence-categories-sort-label-{self.name}',
+                                                        ),
+                                                        dbc.Select(
+                                                            id=f'shap-dependence-categories-sort-{self.name}',
+                                                            options=[
+                                                                {
+                                                                    'label': 'Alphabetically',
+                                                                    'value': 'alphabet',
+                                                                },
+                                                                {
+                                                                    'label': 'Frequency',
+                                                                    'value': 'freq',
+                                                                },
+                                                                {
+                                                                    'label': 'Shap impact',
+                                                                    'value': 'shap',
+                                                                },
+                                                            ],
+                                                            value=self.cats_sort,
+                                                        ),
+                                                    ],
+                                                    id=f'shap-dependence-categories-div2-{self.name}',
+                                                    style={}
+                                                    if self.col
+                                                    in self.explainer.cat_cols
+                                                    else dict(display="none"),
+                                                )
+                                            ],
+                                            md=4,
+                                        ),
+                                        hide=self.hide_cats_sort,
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                    hide=self.hide_footer,
+                ),
+            ]
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         args = self.get_state_args(state_dict)
@@ -420,20 +677,12 @@ class ShapDependenceComponent(ExplainerComponent):
                     highlight_index=args['index'], max_cat_colors=self.max_cat_colors,
                     plot_sample=self.plot_sample, remove_outliers=bool(args['remove_outliers']), 
                     pos_label=args['pos_label'])
-        
+
         html = to_html.card(fig.to_html(include_plotlyjs='cdn', full_html=False), title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
-        @app.callback(
-            [Output('shap-dependence-color-col-'+self.name, 'options'),
-             Output('shap-dependence-color-col-'+self.name, 'value'),
-             Output('shap-dependence-categories-div1-'+self.name, 'style'),
-             Output('shap-dependence-categories-div2-'+self.name, 'style')],
-            [Input('shap-dependence-col-'+self.name, 'value')],
-            [State('pos-label-'+self.name, 'value')])
+        @app.callback([Output(f'shap-dependence-color-col-{self.name}', 'options'), Output(f'shap-dependence-color-col-{self.name}', 'value'), Output(f'shap-dependence-categories-div1-{self.name}', 'style'), Output(f'shap-dependence-categories-div2-{self.name}', 'style')], [Input(f'shap-dependence-col-{self.name}', 'value')], [State(f'pos-label-{self.name}', 'value')])
         def set_color_col_dropdown(col, pos_label):
             sorted_interact_cols = self.explainer.top_shap_interactions(
                                     col, pos_label=pos_label)
@@ -442,21 +691,13 @@ class ShapDependenceComponent(ExplainerComponent):
                             + [dict(label="None", value="no_color_col")])
             if col in self.explainer.cat_cols:
                 value = None
-                style = dict()
+                style = {}
             else:
                 value = sorted_interact_cols[1]   
-                style = dict(display="none")                             
+                style = dict(display="none")
             return (options, value, style, style)
 
-        @app.callback(
-            Output('shap-dependence-graph-'+self.name, 'figure'),
-            [Input('shap-dependence-color-col-'+self.name, 'value'),
-             Input('shap-dependence-index-'+self.name, 'value'),
-             Input('shap-dependence-n-categories-'+self.name, 'value'),
-             Input('shap-dependence-categories-sort-'+self.name, 'value'),
-             Input('shap-dependence-outliers-'+self.name, 'value'),
-             Input('pos-label-'+self.name, 'value')],
-            [State('shap-dependence-col-'+self.name, 'value')])
+        @app.callback(Output(f'shap-dependence-graph-{self.name}', 'figure'), [Input(f'shap-dependence-color-col-{self.name}', 'value'), Input(f'shap-dependence-index-{self.name}', 'value'), Input(f'shap-dependence-n-categories-{self.name}', 'value'), Input(f'shap-dependence-categories-sort-{self.name}', 'value'), Input(f'shap-dependence-outliers-{self.name}', 'value'), Input(f'pos-label-{self.name}', 'value')], [State(f'shap-dependence-col-{self.name}', 'value')])
         def update_dependence_graph(color_col, index, topx, sort, remove_outliers, pos_label, col):
             if col is not None:
                 if color_col =="no_color_col": 
@@ -483,10 +724,7 @@ class ShapSummaryDependenceConnector(ExplainerComponent):
         self.dep_name = shap_dependence_component.name
 
     def component_callbacks(self, app):
-        @app.callback(
-            [Output('shap-dependence-index-'+self.dep_name, 'value'),
-             Output('shap-dependence-col-'+self.dep_name, 'value')],
-            [Input('shap-summary-graph-'+self.sum_name, 'clickData')])
+        @app.callback([Output(f'shap-dependence-index-{self.dep_name}', 'value'), Output(f'shap-dependence-col-{self.dep_name}', 'value')], [Input(f'shap-summary-graph-{self.sum_name}', 'clickData')])
         def display_scatter_click_data(clickdata):
             if clickdata is not None and clickdata['points'][0] is not None:
                 if isinstance(clickdata['points'][0]['y'], float): # detailed
@@ -553,14 +791,14 @@ class InteractionSummaryComponent(ExplainerComponent):
                 component title. When None default text is shown. 
         """
         super().__init__(explainer, title, name)
-    
+
         if self.col is None:
             self.col = self.explainer.columns_ranked_by_shap()[0]
         if self.depth is not None:
             self.depth = min(self.depth, self.explainer.n_features-1)
-        self.index_name = 'interaction-summary-index-'+self.name
+        self.index_name = f'interaction-summary-index-{self.name}'
         self.selector = PosLabelSelector(explainer, name=self.name, pos_label=pos_label)
-        
+
         if self.description is None: self.description = """
         Shows shap interaction values. Each shap value can be decomposed into a direct
         effect and indirect effects. The indirect effects are due to interactions
@@ -570,94 +808,213 @@ class InteractionSummaryComponent(ExplainerComponent):
         for example passenger class (first class women more likely to survive than
         average woman, third class women less likely).
         """
-        self.popout = GraphPopout('interaction-summary-'+self.name+'popout', 
-                            'interaction-summary-graph-'+self.name, self.title, self.description)
+        self.popout = GraphPopout(
+            f'interaction-summary-{self.name}popout',
+            f'interaction-summary-graph-{self.name}',
+            self.title,
+            self.description,
+        )
         self.register_dependencies("shap_interaction_values")
 
     def layout(self):
-        return dbc.Card([
-            make_hideable(
-                dbc.CardHeader([
-                    html.Div([
-                        html.H3(self.title, id='interaction-summary-title-'+self.name),
-                        make_hideable(html.H6(self.subtitle, className='card-subtitle'), hide=self.hide_subtitle),
-                        dbc.Tooltip(self.description, target='interaction-summary-title-'+self.name),
-                    ]), 
-                ]), hide=self.hide_title),
-            dbc.CardBody([
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.Label("Feature", id='interaction-summary-col-label-'+self.name),
-                            dbc.Tooltip("Feature to select interactions effects for",
-                                    target='interaction-summary-col-label-'+self.name),
-                            dbc.Select(id='interaction-summary-col-'+self.name, 
-                                options=[{'label': col, 'value': col} 
-                                            for col in self.explainer.columns_ranked_by_shap()],
-                                value=self.col),
-                        ], md=2), self.hide_col),
-                    make_hideable(
-                        dbc.Col([
-        
-                            dbc.Label("Depth:", id='interaction-summary-depth-label-'+self.name),
-                            dbc.Tooltip("Number of interaction features to display",
-                                    target='interaction-summary-depth-label-'+self.name),
-                            dbc.Select(id='interaction-summary-depth-'+self.name, 
-                                options = [{'label': str(i+1), 'value':i+1} 
-                                                for i in range(self.explainer.n_features-1)],
-                                value=self.depth)
-                        ], md=2), self.hide_depth),
-                    make_hideable(
-                        dbc.Col([
-                            dbc.FormGroup(
+        return dbc.Card(
+            [
+                make_hideable(
+                    dbc.CardHeader(
+                        [
+                            html.Div(
                                 [
-                                    dbc.Label("Summary Type", id='interaction-summary-type-label-'+self.name),
-                                    dbc.Tooltip("Display mean absolute SHAP value per feature (aggregate)"
-                                                " or display every single shap value per feature (detailed)", 
-                                                target='interaction-summary-type-label-'+self.name),
-                                    dbc.Select(
-                                        options=[
-                                            {"label": "Aggregate", "value": "aggregate"},
-                                            {"label": "Detailed", "value": "detailed"},
-                                        ],
-                                        value=self.summary_type,
-                                        id='interaction-summary-type-'+self.name, 
+                                    html.H3(
+                                        self.title,
+                                        id=f'interaction-summary-title-{self.name}',
+                                    ),
+                                    make_hideable(
+                                        html.H6(
+                                            self.subtitle,
+                                            className='card-subtitle',
+                                        ),
+                                        hide=self.hide_subtitle,
+                                    ),
+                                    dbc.Tooltip(
+                                        self.description,
+                                        target=f'interaction-summary-title-{self.name}',
                                     ),
                                 ]
                             )
-                        ], md=3), self.hide_type),
-                    make_hideable(
-                        dbc.Col([
-                            html.Div([
-                                dbc.Label(f"{self.explainer.index_name}:", id='interaction-summary-index-label-'+self.name),
-                                dbc.Tooltip(f"Select {self.explainer.index_name} to highlight in plot. "
-                                            "You can also select by clicking on a scatter point in the graph.", 
-                                            target='interaction-summary-index-label-'+self.name),
-                                dcc.Dropdown(id='interaction-summary-index-'+self.name, 
-                                    options = [{'label': str(idx), 'value':idx} 
-                                                    for idx in self.explainer.idxs],
-                                    value=self.index),
-                            ], id='interaction-summary-index-col-'+self.name, style=dict(display="none")), 
-                        ], md=3), hide=self.hide_index),  
-                    make_hideable(
-                            dbc.Col([self.selector.layout()
-                        ], width=2), hide=self.hide_selector),
-                    ], form=True),
-                dbc.Row([
-                    dbc.Col([
-                        dcc.Loading(id='loading-interaction-summary-graph-'+self.name, 
-                            children=[dcc.Graph(id='interaction-summary-graph-'+self.name, 
-                                                config=dict(modeBarButtons=[['toImage']], displaylogo=False))])
-                    ])
-                ]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            self.popout.layout()
-                        ], md=2, align="start"), hide=self.hide_popout),
-                ], justify="end"), 
-            ]),
-        ])
+                        ]
+                    ),
+                    hide=self.hide_title,
+                ),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                "Feature",
+                                                id=f'interaction-summary-col-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Feature to select interactions effects for",
+                                                target=f'interaction-summary-col-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'interaction-summary-col-{self.name}',
+                                                options=[
+                                                    {'label': col, 'value': col}
+                                                    for col in self.explainer.columns_ranked_by_shap()
+                                                ],
+                                                value=self.col,
+                                            ),
+                                        ],
+                                        md=2,
+                                    ),
+                                    self.hide_col,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                "Depth:",
+                                                id=f'interaction-summary-depth-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Number of interaction features to display",
+                                                target=f'interaction-summary-depth-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'interaction-summary-depth-{self.name}',
+                                                options=[
+                                                    {
+                                                        'label': str(i + 1),
+                                                        'value': i + 1,
+                                                    }
+                                                    for i in range(
+                                                        self.explainer.n_features
+                                                        - 1
+                                                    )
+                                                ],
+                                                value=self.depth,
+                                            ),
+                                        ],
+                                        md=2,
+                                    ),
+                                    self.hide_depth,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.FormGroup(
+                                                [
+                                                    dbc.Label(
+                                                        "Summary Type",
+                                                        id=f'interaction-summary-type-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "Display mean absolute SHAP value per feature (aggregate)"
+                                                        " or display every single shap value per feature (detailed)",
+                                                        target=f'interaction-summary-type-label-{self.name}',
+                                                    ),
+                                                    dbc.Select(
+                                                        options=[
+                                                            {
+                                                                "label": "Aggregate",
+                                                                "value": "aggregate",
+                                                            },
+                                                            {
+                                                                "label": "Detailed",
+                                                                "value": "detailed",
+                                                            },
+                                                        ],
+                                                        value=self.summary_type,
+                                                        id=f'interaction-summary-type-{self.name}',
+                                                    ),
+                                                ]
+                                            )
+                                        ],
+                                        md=3,
+                                    ),
+                                    self.hide_type,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        f"{self.explainer.index_name}:",
+                                                        id=f'interaction-summary-index-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        f"Select {self.explainer.index_name} to highlight in plot. You can also select by clicking on a scatter point in the graph.",
+                                                        target=f'interaction-summary-index-label-{self.name}',
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id=f'interaction-summary-index-{self.name}',
+                                                        options=[
+                                                            {
+                                                                'label': str(idx),
+                                                                'value': idx,
+                                                            }
+                                                            for idx in self.explainer.idxs
+                                                        ],
+                                                        value=self.index,
+                                                    ),
+                                                ],
+                                                id=f'interaction-summary-index-col-{self.name}',
+                                                style=dict(display="none"),
+                                            )
+                                        ],
+                                        md=3,
+                                    ),
+                                    hide=self.hide_index,
+                                ),
+                                make_hideable(
+                                    dbc.Col([self.selector.layout()], width=2),
+                                    hide=self.hide_selector,
+                                ),
+                            ],
+                            form=True,
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        dcc.Loading(
+                                            id=f'loading-interaction-summary-graph-{self.name}',
+                                            children=[
+                                                dcc.Graph(
+                                                    id=f'interaction-summary-graph-{self.name}',
+                                                    config=dict(
+                                                        modeBarButtons=[
+                                                            ['toImage']
+                                                        ],
+                                                        displaylogo=False,
+                                                    ),
+                                                )
+                                            ],
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [self.popout.layout()], md=2, align="start"
+                                    ),
+                                    hide=self.hide_popout,
+                                ),
+                            ],
+                            justify="end",
+                        ),
+                    ]
+                ),
+            ]
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         args = self.get_state_args(state_dict)
@@ -669,29 +1026,21 @@ class InteractionSummaryComponent(ExplainerComponent):
                         max_cat_colors=self.max_cat_colors, plot_sample=self.plot_sample)
 
         html = to_html.card(to_html.fig(fig), title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
-        @app.callback(
-            Output('interaction-summary-index-'+self.name, 'value'),
-            [Input('interaction-summary-graph-'+self.name, 'clickData')])
+        @app.callback(Output(f'interaction-summary-index-{self.name}', 'value'), [Input(f'interaction-summary-graph-{self.name}', 'clickData')])
         def display_scatter_click_data(clickdata):
-            if clickdata is not None and clickdata['points'][0] is not None:
-                if isinstance(clickdata['points'][0]['y'], float): # detailed
-                    index = clickdata['points'][0]['text'].split('=')[1].split('<br>')[0]                 
-                    return index
+            if (
+                clickdata is not None
+                and clickdata['points'][0] is not None
+                and isinstance(clickdata['points'][0]['y'], float)
+            ):
+                index = clickdata['points'][0]['text'].split('=')[1].split('<br>')[0]
+                return index
             raise PreventUpdate
 
-        @app.callback(
-            [Output('interaction-summary-graph-'+self.name, 'figure'),
-             Output('interaction-summary-index-col-'+self.name, 'style')],
-            [Input('interaction-summary-col-'+self.name, 'value'),
-             Input('interaction-summary-depth-'+self.name, 'value'),
-             Input('interaction-summary-type-'+self.name, 'value'),
-             Input('interaction-summary-index-'+self.name, 'value'),
-             Input('pos-label-'+self.name, 'value')])
+        @app.callback([Output(f'interaction-summary-graph-{self.name}', 'figure'), Output(f'interaction-summary-index-col-{self.name}', 'style')], [Input(f'interaction-summary-col-{self.name}', 'value'), Input(f'interaction-summary-depth-{self.name}', 'value'), Input(f'interaction-summary-type-{self.name}', 'value'), Input(f'interaction-summary-index-{self.name}', 'value'), Input(f'pos-label-{self.name}', 'value')])
         def update_interaction_scatter_graph(col, depth, summary_type, index, pos_label):
             if col is not None:
                 depth = None if depth is None else int(depth)
@@ -784,193 +1133,452 @@ class InteractionDependenceComponent(ExplainerComponent):
             self.col = explainer.columns_ranked_by_shap()[0]
         if self.interact_col is None:
             self.interact_col = explainer.top_shap_interactions(self.col)[1]
-        
+
 
         self.selector = PosLabelSelector(explainer, name=self.name, pos_label=pos_label)
-        self.popout_top = GraphPopout(self.name+'popout-top', 
-                'interaction-dependence-top-graph-'+self.name, self.title)
-        
+        self.popout_top = GraphPopout(
+            f'{self.name}popout-top',
+            f'interaction-dependence-top-graph-{self.name}',
+            self.title,
+        )
+
         if self.description is None: self.description = """
         This plot shows the relation between feature values and shap interaction values.
         This allows you to investigate interactions between features in determining
         the prediction of the model.
         """
-        self.popout_bottom = GraphPopout(self.name+'popout-bottom', 
-                'interaction-dependence-bottom-graph-'+self.name, self.title, self.description)
+        self.popout_bottom = GraphPopout(
+            f'{self.name}popout-bottom',
+            f'interaction-dependence-bottom-graph-{self.name}',
+            self.title,
+            self.description,
+        )
         self.register_dependencies("shap_interaction_values")
 
     def layout(self):
-        return dbc.Card([
-            make_hideable(
-                dbc.CardHeader([
-                    html.Div([
-                        html.H3(self.title, id='interaction-dependence-title-'+self.name),
-                        make_hideable(html.H6(self.subtitle, className='card-subtitle'), hide=self.hide_subtitle),
-                        dbc.Tooltip(self.description, target='interaction-dependence-title-'+self.name),
-                    ]), 
-                ]), hide=self.hide_title),
-            dbc.CardBody([
-                dbc.Row([
-                    make_hideable(
-                            dbc.Col([self.selector.layout()
-                        ], width=2), hide=self.hide_selector),
-                ]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.Label('Feature:', id='interaction-dependence-col-label-'+self.name),
-                                dbc.Tooltip("Select feature to display shap interactions for", 
-                                            target='interaction-dependence-col-label-'+self.name),
-                            dbc.Select(id='interaction-dependence-col-'+self.name,
-                                options=[{'label': col, 'value':col} 
-                                            for col in self.explainer.columns_ranked_by_shap()],
-                                value=self.col
-                            ),
-                        ], md=3), hide=self.hide_col), 
-                    make_hideable(
-                        dbc.Col([
-                            html.Label('Interaction:', id='interaction-dependence-interact-col-label-'+self.name),
-                                dbc.Tooltip("Select feature to show interaction values for.  Two plots will be shown: "
-                                            "both Feature vs Interaction Feature and Interaction Feature vs Feature.", 
-                                            target='interaction-dependence-interact-col-label-'+self.name),
-                            dbc.Select(id='interaction-dependence-interact-col-'+self.name, 
-                                options=[{'label': col, 'value':col} 
-                                            for col in self.explainer.top_shap_interactions(col=self.col)],
-                                value=self.interact_col
-                            ),
-                        ], md=3), hide=self.hide_interact_col), 
-                    make_hideable(
-                            dbc.Col([
-                                dbc.Label(f"{self.explainer.index_name}:", id='interaction-dependence-index-label-'+self.name),
-                                dbc.Tooltip(f"Select {self.explainer.index_name} to highlight in the plot."
-                                            "You can also select by clicking on a scatter marker in the accompanying"
-                                            " shap interaction summary plot (detailed).", 
-                                            target='interaction-dependence-index-label-'+self.name),
-                                dcc.Dropdown(id='interaction-dependence-index-'+self.name, 
-                                    options = [{'label': str(idx), 'value':idx} 
-                                                    for idx in self.explainer.idxs],
-                                    value=self.index)
-                            ], md=4), hide=self.hide_index), 
-                    ], form=True),
-                dbc.Row([
-                    dbc.Col([
-                        make_hideable(
-                        dcc.Loading(id='loading-interaction-dependence-top-graph-'+self.name, 
-                                children=[dcc.Graph(id='interaction-dependence-top-graph-'+self.name,
-                                                config=dict(modeBarButtons=[['toImage']], displaylogo=False))]),
-                                hide=self.hide_top),
-                    ]),
-                ]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            self.popout_top.layout()
-                        ], md=2, align="start"), hide=self.hide_popout),
-                ], justify="end"),
-                
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.FormGroup([
-                                dbc.Tooltip("Remove outliers (> 1.5*IQR) in feature and interaction feature from plot.",
-                                        target='interaction-dependence-top-outliers-'+self.name),
-                                dbc.Checklist(
-                                    options=[{"label":  "Remove outliers", "value": True}],
-                                    value=[True] if self.remove_outliers else [],
-                                    id='interaction-dependence-top-outliers-'+self.name,
-                                    inline=True,
-                                    switch=True,
+        return dbc.Card(
+            [
+                make_hideable(
+                    dbc.CardHeader(
+                        [
+                            html.Div(
+                                [
+                                    html.H3(
+                                        self.title,
+                                        id=f'interaction-dependence-title-{self.name}',
+                                    ),
+                                    make_hideable(
+                                        html.H6(
+                                            self.subtitle,
+                                            className='card-subtitle',
+                                        ),
+                                        hide=self.hide_subtitle,
+                                    ),
+                                    dbc.Tooltip(
+                                        self.description,
+                                        target=f'interaction-dependence-title-{self.name}',
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                    hide=self.hide_title,
+                ),
+                dbc.CardBody(
+                    [
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col([self.selector.layout()], width=2),
+                                    hide=self.hide_selector,
                                 ),
-                            ]),
-                        ], md=2), hide=self.hide_outliers), 
-                    make_hideable(
-                        dbc.Col([
-                            html.Div([
-                                dbc.Label("Categories:", id='interaction-dependence-top-n-categories-label-'+self.name),
-                                dbc.Tooltip("Maximum number of categories to display", 
-                                            target='interaction-dependence-top-n-categories-label-'+self.name),
-                                dbc.Input(id='interaction-dependence-top-n-categories-'+self.name, 
-                                    value=self.cats_topx,
-                                    type="number", min=1, max=50, step=1),
-                            ], id='interaction-dependence-top-categories-div1-'+self.name, 
-                                style={} if self.interact_col in self.explainer.cat_cols else dict(display="none")),
-                        ], md=2), self.hide_cats_topx),
-                        make_hideable(
-                            dbc.Col([
-                                html.Div([
-                                    html.Label('Sort categories:', id='interaction-dependence-top-categories-sort-label-'+self.name),
-                                    dbc.Tooltip("How to sort the categories: Alphabetically, most common "
-                                                "first (Frequency), or highest mean absolute SHAP value first (Shap impact)", 
-                                                target='interaction-dependence-top-categories-sort-label-'+self.name),
-                                    dbc.Select(id='interaction-dependence-top-categories-sort-'+self.name,
-                                            options = [{'label': 'Alphabetically', 'value': 'alphabet'},
-                                                        {'label': 'Frequency', 'value': 'freq'},
-                                                        {'label': 'Shap impact', 'value': 'shap'}],
-                                            value=self.cats_sort),
-                                ], id='interaction-dependence-top-categories-div2-'+self.name, 
-                                style={} if self.interact_col in self.explainer.cat_cols else dict(display="none")),
-                            ], md=4), hide=self.hide_cats_sort),
-                ]),
-                dbc.Row([
-                    dbc.Col([
-                        make_hideable(
-                        dcc.Loading(id='loading-reverse-interaction-bottom-graph-'+self.name, 
-                                children=[dcc.Graph(id='interaction-dependence-bottom-graph-'+self.name,
-                                                config=dict(modeBarButtons=[['toImage']], displaylogo=False))]),
-                                hide=self.hide_bottom),
-                    ]),
-                ]),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            self.popout_bottom.layout()
-                        ], md=2, align="start"), hide=self.hide_popout),
-                ], justify="end"),
-                dbc.Row([
-                    make_hideable(
-                        dbc.Col([
-                            dbc.FormGroup([
-                                dbc.Tooltip("Remove outliers (> 1.5*IQR) in feature and interaction feature from plot.",
-                                        target='interaction-dependence-bottom-outliers-'+self.name),
-                                dbc.Checklist(
-                                    options=[{"label":  "Remove outliers", "value": True}],
-                                    value=[True] if self.remove_outliers else [],
-                                    id='interaction-dependence-bottom-outliers-'+self.name,
-                                    inline=True,
-                                    switch=True,
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                'Feature:',
+                                                id=f'interaction-dependence-col-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Select feature to display shap interactions for",
+                                                target=f'interaction-dependence-col-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'interaction-dependence-col-{self.name}',
+                                                options=[
+                                                    {'label': col, 'value': col}
+                                                    for col in self.explainer.columns_ranked_by_shap()
+                                                ],
+                                                value=self.col,
+                                            ),
+                                        ],
+                                        md=3,
+                                    ),
+                                    hide=self.hide_col,
                                 ),
-                            ]),
-                        ], md=2), hide=self.hide_outliers), 
-                    make_hideable(
-                        dbc.Col([
-                            html.Div([
-                                dbc.Label("Categories:", id='interaction-dependence-bottom-n-categories-label-'+self.name),
-                                dbc.Tooltip("Maximum number of categories to display", 
-                                            target='interaction-dependence-bottom-n-categories-label-'+self.name),
-                                dbc.Input(id='interaction-dependence-bottom-n-categories-'+self.name, 
-                                    value=self.cats_topx,
-                                    type="number", min=1, max=50, step=1),
-                            ], id='interaction-dependence-bottom-categories-div1-'+self.name, 
-                                style={} if self.col in self.explainer.cat_cols else dict(display="none")),
-                        ], md=2), self.hide_cats_topx),
-                    make_hideable(
-                        dbc.Col([
-                            html.Div([
-                                html.Label('Sort categories:', id='interaction-dependence-bottom-categories-sort-label-'+self.name),
-                                dbc.Tooltip("How to sort the categories: Alphabetically, most common "
-                                            "first (Frequency), or highest mean absolute SHAP value first (Shap impact)", 
-                                            target='interaction-dependence-bottom-categories-sort-label-'+self.name),
-                                dbc.Select(id='interaction-dependence-bottom-categories-sort-'+self.name,
-                                        options = [{'label': 'Alphabetically', 'value': 'alphabet'},
-                                                    {'label': 'Frequency', 'value': 'freq'},
-                                                    {'label': 'Shap impact', 'value': 'shap'}],
-                                        value=self.cats_sort),
-                            ], id='interaction-dependence-bottom-categories-div2-'+self.name, 
-                            style={} if self.col in self.explainer.cat_cols else dict(display="none")),
-                        ], md=4), hide=self.hide_cats_sort), 
-                ])
-            ]),
-        ])
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Label(
+                                                'Interaction:',
+                                                id=f'interaction-dependence-interact-col-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                "Select feature to show interaction values for.  Two plots will be shown: "
+                                                "both Feature vs Interaction Feature and Interaction Feature vs Feature.",
+                                                target=f'interaction-dependence-interact-col-label-{self.name}',
+                                            ),
+                                            dbc.Select(
+                                                id=f'interaction-dependence-interact-col-{self.name}',
+                                                options=[
+                                                    {'label': col, 'value': col}
+                                                    for col in self.explainer.top_shap_interactions(
+                                                        col=self.col
+                                                    )
+                                                ],
+                                                value=self.interact_col,
+                                            ),
+                                        ],
+                                        md=3,
+                                    ),
+                                    hide=self.hide_interact_col,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.Label(
+                                                f"{self.explainer.index_name}:",
+                                                id=f'interaction-dependence-index-label-{self.name}',
+                                            ),
+                                            dbc.Tooltip(
+                                                f"Select {self.explainer.index_name} to highlight in the plot.You can also select by clicking on a scatter marker in the accompanying shap interaction summary plot (detailed).",
+                                                target=f'interaction-dependence-index-label-{self.name}',
+                                            ),
+                                            dcc.Dropdown(
+                                                id=f'interaction-dependence-index-{self.name}',
+                                                options=[
+                                                    {
+                                                        'label': str(idx),
+                                                        'value': idx,
+                                                    }
+                                                    for idx in self.explainer.idxs
+                                                ],
+                                                value=self.index,
+                                            ),
+                                        ],
+                                        md=4,
+                                    ),
+                                    hide=self.hide_index,
+                                ),
+                            ],
+                            form=True,
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        make_hideable(
+                                            dcc.Loading(
+                                                id=f'loading-interaction-dependence-top-graph-{self.name}',
+                                                children=[
+                                                    dcc.Graph(
+                                                        id=f'interaction-dependence-top-graph-{self.name}',
+                                                        config=dict(
+                                                            modeBarButtons=[
+                                                                ['toImage']
+                                                            ],
+                                                            displaylogo=False,
+                                                        ),
+                                                    )
+                                                ],
+                                            ),
+                                            hide=self.hide_top,
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [self.popout_top.layout()],
+                                        md=2,
+                                        align="start",
+                                    ),
+                                    hide=self.hide_popout,
+                                ),
+                            ],
+                            justify="end",
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.FormGroup(
+                                                [
+                                                    dbc.Tooltip(
+                                                        "Remove outliers (> 1.5*IQR) in feature and interaction feature from plot.",
+                                                        target=f'interaction-dependence-top-outliers-{self.name}',
+                                                    ),
+                                                    dbc.Checklist(
+                                                        options=[
+                                                            {
+                                                                "label": "Remove outliers",
+                                                                "value": True,
+                                                            }
+                                                        ],
+                                                        value=[True]
+                                                        if self.remove_outliers
+                                                        else [],
+                                                        id=f'interaction-dependence-top-outliers-{self.name}',
+                                                        inline=True,
+                                                        switch=True,
+                                                    ),
+                                                ]
+                                            )
+                                        ],
+                                        md=2,
+                                    ),
+                                    hide=self.hide_outliers,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        "Categories:",
+                                                        id=f'interaction-dependence-top-n-categories-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "Maximum number of categories to display",
+                                                        target=f'interaction-dependence-top-n-categories-label-{self.name}',
+                                                    ),
+                                                    dbc.Input(
+                                                        id=f'interaction-dependence-top-n-categories-{self.name}',
+                                                        value=self.cats_topx,
+                                                        type="number",
+                                                        min=1,
+                                                        max=50,
+                                                        step=1,
+                                                    ),
+                                                ],
+                                                id=f'interaction-dependence-top-categories-div1-{self.name}',
+                                                style={}
+                                                if self.interact_col
+                                                in self.explainer.cat_cols
+                                                else dict(display="none"),
+                                            )
+                                        ],
+                                        md=2,
+                                    ),
+                                    self.hide_cats_topx,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.Label(
+                                                        'Sort categories:',
+                                                        id=f'interaction-dependence-top-categories-sort-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "How to sort the categories: Alphabetically, most common "
+                                                        "first (Frequency), or highest mean absolute SHAP value first (Shap impact)",
+                                                        target=f'interaction-dependence-top-categories-sort-label-{self.name}',
+                                                    ),
+                                                    dbc.Select(
+                                                        id=f'interaction-dependence-top-categories-sort-{self.name}',
+                                                        options=[
+                                                            {
+                                                                'label': 'Alphabetically',
+                                                                'value': 'alphabet',
+                                                            },
+                                                            {
+                                                                'label': 'Frequency',
+                                                                'value': 'freq',
+                                                            },
+                                                            {
+                                                                'label': 'Shap impact',
+                                                                'value': 'shap',
+                                                            },
+                                                        ],
+                                                        value=self.cats_sort,
+                                                    ),
+                                                ],
+                                                id=f'interaction-dependence-top-categories-div2-{self.name}',
+                                                style={}
+                                                if self.interact_col
+                                                in self.explainer.cat_cols
+                                                else dict(display="none"),
+                                            )
+                                        ],
+                                        md=4,
+                                    ),
+                                    hide=self.hide_cats_sort,
+                                ),
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        make_hideable(
+                                            dcc.Loading(
+                                                id=f'loading-reverse-interaction-bottom-graph-{self.name}',
+                                                children=[
+                                                    dcc.Graph(
+                                                        id=f'interaction-dependence-bottom-graph-{self.name}',
+                                                        config=dict(
+                                                            modeBarButtons=[
+                                                                ['toImage']
+                                                            ],
+                                                            displaylogo=False,
+                                                        ),
+                                                    )
+                                                ],
+                                            ),
+                                            hide=self.hide_bottom,
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [self.popout_bottom.layout()],
+                                        md=2,
+                                        align="start",
+                                    ),
+                                    hide=self.hide_popout,
+                                ),
+                            ],
+                            justify="end",
+                        ),
+                        dbc.Row(
+                            [
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            dbc.FormGroup(
+                                                [
+                                                    dbc.Tooltip(
+                                                        "Remove outliers (> 1.5*IQR) in feature and interaction feature from plot.",
+                                                        target=f'interaction-dependence-bottom-outliers-{self.name}',
+                                                    ),
+                                                    dbc.Checklist(
+                                                        options=[
+                                                            {
+                                                                "label": "Remove outliers",
+                                                                "value": True,
+                                                            }
+                                                        ],
+                                                        value=[True]
+                                                        if self.remove_outliers
+                                                        else [],
+                                                        id=f'interaction-dependence-bottom-outliers-{self.name}',
+                                                        inline=True,
+                                                        switch=True,
+                                                    ),
+                                                ]
+                                            )
+                                        ],
+                                        md=2,
+                                    ),
+                                    hide=self.hide_outliers,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        "Categories:",
+                                                        id=f'interaction-dependence-bottom-n-categories-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "Maximum number of categories to display",
+                                                        target=f'interaction-dependence-bottom-n-categories-label-{self.name}',
+                                                    ),
+                                                    dbc.Input(
+                                                        id=f'interaction-dependence-bottom-n-categories-{self.name}',
+                                                        value=self.cats_topx,
+                                                        type="number",
+                                                        min=1,
+                                                        max=50,
+                                                        step=1,
+                                                    ),
+                                                ],
+                                                id=f'interaction-dependence-bottom-categories-div1-{self.name}',
+                                                style={}
+                                                if self.col
+                                                in self.explainer.cat_cols
+                                                else dict(display="none"),
+                                            )
+                                        ],
+                                        md=2,
+                                    ),
+                                    self.hide_cats_topx,
+                                ),
+                                make_hideable(
+                                    dbc.Col(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.Label(
+                                                        'Sort categories:',
+                                                        id=f'interaction-dependence-bottom-categories-sort-label-{self.name}',
+                                                    ),
+                                                    dbc.Tooltip(
+                                                        "How to sort the categories: Alphabetically, most common "
+                                                        "first (Frequency), or highest mean absolute SHAP value first (Shap impact)",
+                                                        target=f'interaction-dependence-bottom-categories-sort-label-{self.name}',
+                                                    ),
+                                                    dbc.Select(
+                                                        id=f'interaction-dependence-bottom-categories-sort-{self.name}',
+                                                        options=[
+                                                            {
+                                                                'label': 'Alphabetically',
+                                                                'value': 'alphabet',
+                                                            },
+                                                            {
+                                                                'label': 'Frequency',
+                                                                'value': 'freq',
+                                                            },
+                                                            {
+                                                                'label': 'Shap impact',
+                                                                'value': 'shap',
+                                                            },
+                                                        ],
+                                                        value=self.cats_sort,
+                                                    ),
+                                                ],
+                                                id=f'interaction-dependence-bottom-categories-div2-{self.name}',
+                                                style={}
+                                                if self.col
+                                                in self.explainer.cat_cols
+                                                else dict(display="none"),
+                                            )
+                                        ],
+                                        md=4,
+                                    ),
+                                    hide=self.hide_cats_sort,
+                                ),
+                            ]
+                        ),
+                    ]
+                ),
+            ]
+        )
 
     def to_html(self, state_dict=None, add_header=True):
         args = self.get_state_args(state_dict)
@@ -984,9 +1592,7 @@ class InteractionDependenceComponent(ExplainerComponent):
                             plot_sample=self.plot_sample, remove_outliers=bool(args['remove_outliers']))
 
         html = to_html.card(to_html.fig(fig_top)+to_html.fig(fig_bottom), title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(

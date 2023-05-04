@@ -156,7 +156,7 @@ class ImportancesComponent(ExplainerComponent):
         super().__init__(explainer, title, name)
 
         assert importance_type in ['shap', 'permutation'], \
-            "importance type must be either 'shap' or 'permutation'!"
+                "importance type must be either 'shap' or 'permutation'!"
 
         if depth is not None:
             self.depth = min(depth, len(explainer.columns_ranked_by_shap()))
@@ -166,7 +166,8 @@ class ImportancesComponent(ExplainerComponent):
         if self.explainer.y_missing or self.no_permutations:
             self.hide_type = True
             self.importance_type = 'shap'
-        if self.description is None: self.description = f"""
+        if self.description is None:
+            self.description = """
         Shows the features sorted from most important to least important. Can 
         be either sorted by absolute SHAP value (average absolute impact of 
         the feature on final prediction) or by permutation importance (how much
@@ -249,9 +250,7 @@ class ImportancesComponent(ExplainerComponent):
                         kind=args['importance_type'], topx=args['depth'], pos_label=args['pos_label'])
 
         html = to_html.card(to_html.fig(fig), title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
         
     def component_callbacks(self, app, **kwargs):
         @app.callback(  
@@ -336,9 +335,7 @@ class FeatureDescriptionsComponent(ExplainerComponent):
         args = self.get_state_args(state_dict)
         html = to_html.table_from_df(self.explainer.get_descriptions_df(sort=args['sort']))
         html = to_html.card(html, title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
     
     def component_callbacks(self, app):
         @app.callback(
@@ -570,7 +567,9 @@ class PdpComponent(ExplainerComponent):
         else:
             inputs = {k:v for k,v in self.feature_input_component.get_state_args(state_dict).items() if k != 'index'}
             inputs = list(inputs.values())
-            if len(inputs) == len(self.feature_input_component._input_features) and not any([i is None for i in inputs]):
+            if len(inputs) == len(
+                self.feature_input_component._input_features
+            ) and all(i is not None for i in inputs):
                 X_row = self.explainer.get_row_from_input(inputs, ranked_by_shap=True)
                 fig = self.explainer.plot_pdp(args['col'], X_row=X_row, 
                         drop_na=bool(args['dropna']), sample=args['sample'], 
@@ -578,12 +577,10 @@ class PdpComponent(ExplainerComponent):
                         sort=args['cats_sort'], pos_label=args['pos_label'])
                 html = to_html.fig(fig)
             else:
-                html = f"<div>input data incorrect</div>"
+                html = "<div>input data incorrect</div>"
 
         html = to_html.card(html, title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
                 
     def component_callbacks(self, app):
         @app.callback(
@@ -667,25 +664,26 @@ class FeatureInputComponent(ExplainerComponent):
         super().__init__(explainer, title, name)
 
         assert len(explainer.columns) == len(set(explainer.columns)), \
-            "Not all X column names are unique, so cannot launch FeatureInputComponent component/tab!"
-            
+                "Not all X column names are unique, so cannot launch FeatureInputComponent component/tab!"
+
         self.index_name = 'feature-input-index-'+self.name
-        
-        
+
+
         self._feature_callback_inputs = [
                 Input('feature-input-'+feature+'-input-'+self.name, 'value') 
                         for feature in self.explainer.columns_ranked_by_shap()]
         self._feature_callback_outputs = [
                 Output('feature-input-'+feature+'-input-'+self.name, 'value') 
                         for feature in self.explainer.columns_ranked_by_shap()] 
-        
+
         if self.sort_features == 'shap':
             self._input_features = self.explainer.columns_ranked_by_shap()
         elif self.sort_features == 'alphabet':
             self._input_features = sorted(self.explainer.merged_cols.tolist())
         else:
-            raise ValueError(f"parameter sort_features should be either 'shap', "
-                    "or 'alphabet', but you passed sort_features='{self.sort_features}'")
+            raise ValueError(
+                "parameter sort_features should be either 'shap', or 'alphabet', but you passed sort_features='{self.sort_features}'"
+            )
 
         self._feature_inputs = [
             self._generate_dash_input(
@@ -702,37 +700,57 @@ class FeatureInputComponent(ExplainerComponent):
     def _generate_dash_input(self, col, onehot_cols, onehot_dict, cat_dict):
         if col in cat_dict:
             col_values = cat_dict[col]
-            return dbc.FormGroup([
+            return dbc.FormGroup(
+                [
                     dbc.Label(col),
-                    dcc.Dropdown(id='feature-input-'+col+'-input-'+self.name, 
-                             options=[dict(label=col_val, value=col_val) for col_val in col_values],
-                             clearable=False),
-                    dbc.FormText(f"Select any {col}") if not self.hide_range else None,
-                ])   
+                    dcc.Dropdown(
+                        id='feature-input-' + col + '-input-' + self.name,
+                        options=[
+                            dict(label=col_val, value=col_val)
+                            for col_val in col_values
+                        ],
+                        clearable=False,
+                    ),
+                    None if self.hide_range else dbc.FormText(f"Select any {col}"),
+                ]
+            )
         elif col in onehot_cols:
-            col_values = [c for c in onehot_dict[col]]
+            col_values = list(onehot_dict[col])
             display_values = [
                 col_val[len(col)+1:] if col_val.startswith(col+"_") else col_val
                     for col_val in col_values]
             if any(self.explainer.X[self.explainer.onehot_dict[col]].sum(axis=1) == 0):
                 col_values.append(self.explainer.onehot_notencoded[col])
                 display_values.append(self.explainer.onehot_notencoded[col])
-            return dbc.FormGroup([
+            return dbc.FormGroup(
+                [
                     dbc.Label(col),
-                    dcc.Dropdown(id='feature-input-'+col+'-input-'+self.name, 
-                             options=[dict(label=display, value=col_val) 
-                                        for display, col_val in zip(display_values, col_values)],
-                             clearable=False),
-                    dbc.FormText(f"Select any {col}") if not self.hide_range else None,
-                ])   
+                    dcc.Dropdown(
+                        id='feature-input-' + col + '-input-' + self.name,
+                        options=[
+                            dict(label=display, value=col_val)
+                            for display, col_val in zip(display_values, col_values)
+                        ],
+                        clearable=False,
+                    ),
+                    None if self.hide_range else dbc.FormText(f"Select any {col}"),
+                ]
+            )
         else:
             min_range = np.round(self.explainer.X[col][lambda x: x != self.explainer.na_fill].min(), 2)
             max_range = np.round(self.explainer.X[col][lambda x: x != self.explainer.na_fill].max(), 2)
-            return dbc.FormGroup([
+            return dbc.FormGroup(
+                [
                     dbc.Label(col),
-                    dbc.Input(id='feature-input-'+col+'-input-'+self.name, type="number"),
-                    dbc.FormText(f"Range: {min_range}-{max_range}") if not self.hide_range else None
-                ])
+                    dbc.Input(
+                        id='feature-input-' + col + '-input-' + self.name,
+                        type="number",
+                    ),
+                    None
+                    if self.hide_range
+                    else dbc.FormText(f"Range: {min_range}-{max_range}"),
+                ]
+            )
         
     def get_slices_cols_first(self, n_inputs, n_cols=2):
         """returns a list of slices to divide n inputs into n_cols columns,
@@ -751,14 +769,18 @@ class FeatureInputComponent(ExplainerComponent):
     def get_slices_rows_first(self, n_inputs, n_cols=3):
         """returns a list of slices to divide n inputs into n_cols columns,
             filling columns first"""
-        if n_inputs < n_cols:
-            slices = [slice(i, i+1, 1) for i in range(n_inputs)]
-        else:
-            slices =  [slice(i, 1+i+(ceil(n_inputs/n_cols)-1)*n_cols, n_cols) 
-                        if i+n_cols*(ceil(n_inputs/n_cols)-1) < n_inputs else 
-                            slice(i, 1+i+(int(n_inputs/n_cols)-1)*n_cols, n_cols)
-                            for i in range(n_cols)]
-        return slices
+        return (
+            [slice(i, i + 1, 1) for i in range(n_inputs)]
+            if n_inputs < n_cols
+            else [
+                slice(i, 1 + i + (ceil(n_inputs / n_cols) - 1) * n_cols, n_cols)
+                if i + n_cols * (ceil(n_inputs / n_cols) - 1) < n_inputs
+                else slice(
+                    i, 1 + i + (int(n_inputs / n_cols) - 1) * n_cols, n_cols
+                )
+                for i in range(n_cols)
+            ]
+        )
 
     def layout(self):
         if self.fill_row_first:
@@ -799,11 +821,9 @@ class FeatureInputComponent(ExplainerComponent):
             html += to_html.row(*["".join(html_inputs[slicer]) for slicer in self.get_slices_rows_first(len(self._input_features), self.n_input_cols)])
         else:
             html += to_html.row(*["".join(html_inputs[slicer]) for slicer in self.get_slices_cols_first(len(self._input_features), self.n_input_cols)])
-        
+
         html = to_html.card(html, title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(
