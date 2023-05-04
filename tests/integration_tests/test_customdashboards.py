@@ -19,10 +19,20 @@ def get_classification_explainer():
 class CustomDashboard(ExplainerComponent):
     def __init__(self, explainer, title="Custom Dashboard", name=None):
         super().__init__(explainer)
-        self.confusion = ConfusionMatrixComponent(explainer, self.name+'0',
-                            hide_selector=True, hide_percentage=True, cutoff=0.75)
-        self.contrib = ShapContributionsGraphComponent(explainer, self.name+'1',
-                            hide_selector=True, hide_depth=True, hide_sort=True)
+        self.confusion = ConfusionMatrixComponent(
+            explainer,
+            f'{self.name}0',
+            hide_selector=True,
+            hide_percentage=True,
+            cutoff=0.75,
+        )
+        self.contrib = ShapContributionsGraphComponent(
+            explainer,
+            f'{self.name}1',
+            hide_selector=True,
+            hide_depth=True,
+            hide_sort=True,
+        )
         
     def layout(self):
         return dbc.Container([

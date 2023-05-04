@@ -70,12 +70,10 @@ def delegates_doc(to=None, keep=False):
             for base_cls in f.__bases__:
                 to_f = base_cls.__init__
         else:
-            if isinstance(to, types.FunctionType):
-                to_f = to
-            else:
-                to_f = to.__init__
+            to_f = to if isinstance(to, types.FunctionType) else to.__init__
         from_f.__doc__ = to_f.__doc__
         return f
+
     return _f
 
 
@@ -132,9 +130,7 @@ def yield_id(return_i=False):
     """yields the next unique consecutive id. Reset using reset_id_generator()"""
     global id_gen
     str_id, i = next(id_gen)
-    if return_i:
-        return str_id, i
-    return str_id
+    return (str_id, i) if return_i else str_id
     
 
 reset_id_generator()
@@ -172,12 +168,13 @@ def get_dbc_tooltips(dbc_table, desc_dict, hover_id, name):
         tds = tr.children
         label = tds[0].children
         if label in desc_dict:
-            tr.id = f'{hover_id}-{label}-'+name
+            tr.id = f'{hover_id}-{label}-{name}'
             tooltips_dict[label] = desc_dict[label]
 
-    tooltips = [dbc.Tooltip(desc,
-        target=f'{hover_id}-{label}-'+name, 
-        placement="top") for label, desc in tooltips_dict.items()]
+    tooltips = [
+        dbc.Tooltip(desc, target=f'{hover_id}-{label}-{name}', placement="top")
+        for label, desc in tooltips_dict.items()
+    ]
 
     return dbc_table, tooltips
 
@@ -196,13 +193,12 @@ def make_hideable(element, hide=False):
                     is a dbc.Col or a dbc.FormGroup, wrap element.children in
                     a hidden html.Div instead. Defaults to False.
     """ 
-    if hide:
-        if isinstance(element, dbc.Col) or isinstance(element, dbc.FormGroup):
-            return html.Div(element.children, style=dict(display="none"))
-        else:
-            return html.Div(element, style=dict(display="none"))
-    else:
+    if not hide:
         return element
+    if isinstance(element, (dbc.Col, dbc.FormGroup)):
+        return html.Div(element.children, style=dict(display="none"))
+    else:
+        return html.Div(element, style=dict(display="none"))
 
 class DummyComponent:
     def __init__(self):
@@ -269,17 +265,16 @@ class ExplainerComponent(ABC):
         child_frame = sys._getframe(2)
         child_args = child_frame.f_code.co_varnames[1:child_frame.f_code.co_argcount]
         child_dict = {arg: child_frame.f_locals[arg] for arg in child_args}
-        
+
         if isinstance(no_store, bool) and no_store:
             return
-        else:
-            if no_store is None: no_store = tuple()
-        
+        if no_store is None: no_store = tuple()
+
         if isinstance(no_attr, bool) and no_attr: dont_attr = True
         else:
             if no_attr is None: no_attr = tuple()
             dont_attr = False 
-            
+
         if isinstance(no_param, bool) and no_param: dont_param = True
         else:
             if no_param is None: no_param = tuple()
@@ -290,7 +285,7 @@ class ExplainerComponent(ABC):
                 setattr(self, name, value)
             if not dont_param and name not in no_store and name not in no_param:
                 self._stored_params[name] = value
-        
+
         self._stored_params = encode_callables(self._stored_params)
 
     def exclude_callbacks(self, *components):
@@ -372,8 +367,7 @@ class ExplainerComponent(ABC):
         deps = self._dependencies
         for comp in self._components:
             deps.extend(comp.dependencies)
-        deps = list(set(deps))
-        return deps
+        return list(set(deps))
 
     @property
     def component_imports(self):
@@ -420,13 +414,12 @@ class ExplainerComponent(ABC):
         pos_labels = []
         for k, v in self.__dict__.items():
             if isinstance(v, PosLabelSelector) and v.name not in pos_labels:
-                pos_labels.append('pos-label-'+v.name)
+                pos_labels.append(f'pos-label-{v.name}')
         # if hasattr(self, 'selector') and isinstance(self.selector, PosLabelSelector):
         #     pos_labels.append('pos-label-'+self.selector.name)
         for comp in self._components:
             pos_labels.extend(comp.pos_labels)
-        pos_labels = list(set(pos_labels))
-        return pos_labels
+        return list(set(pos_labels))
 
     def calculate_dependencies(self):
         """calls all properties in self.dependencies so that they get calculated
@@ -453,9 +446,7 @@ class ExplainerComponent(ABC):
             state_dict (dict): dictionary with id_prop_tuple as keys and state as value.
         """
         html = to_html.div("")
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def save_html(self, filename:Union[str, Path]): # noqa: E821
         """Store output of to_html to a file
@@ -510,30 +501,49 @@ class PosLabelSelector(ExplainerComponent):
 
     def layout(self):
         if self.explainer.is_classifier:
-            return html.Div([
-                    html.Div([
-                        dbc.Label("Positive class:", 
-                            html_for="pos-label-"+self.name, 
-                            id="pos-label-label-"+self.name,
-                            style = {"font-size":"16"},
-                        ),
-                        dbc.Tooltip("Select the label to be set as the positive class",
-                            target="pos-label-label-"+self.name),
-                    ]),
-                    html.Div([
-                        dcc.Dropdown(
-                            id='pos-label-'+self.name,
-                            options = [{'label': label, 'value': i}
-                                    for i, label in enumerate(self.explainer.labels)],
-                            value = self.pos_label,
-                            optionHeight=24,
-                            clearable=False,
-                            style={'height': '24', 'font-size': '24',}
-                        )
-                    ]),   
-            ])
+            return html.Div(
+                [
+                    html.Div(
+                        [
+                            dbc.Label(
+                                "Positive class:",
+                                html_for=f"pos-label-{self.name}",
+                                id=f"pos-label-label-{self.name}",
+                                style={"font-size": "16"},
+                            ),
+                            dbc.Tooltip(
+                                "Select the label to be set as the positive class",
+                                target=f"pos-label-label-{self.name}",
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        [
+                            dcc.Dropdown(
+                                id=f'pos-label-{self.name}',
+                                options=[
+                                    {'label': label, 'value': i}
+                                    for i, label in enumerate(
+                                        self.explainer.labels
+                                    )
+                                ],
+                                value=self.pos_label,
+                                optionHeight=24,
+                                clearable=False,
+                                style={
+                                    'height': '24',
+                                    'font-size': '24',
+                                },
+                            )
+                        ]
+                    ),
+                ]
+            )
         else:
-            return html.Div([dcc.Input(id="pos-label-"+self.name)], style=dict(display="none"))
+            return html.Div(
+                [dcc.Input(id=f"pos-label-{self.name}")],
+                style=dict(display="none"),
+            )
 
 
 class IndexSelector(ExplainerComponent):
@@ -555,16 +565,13 @@ class IndexSelector(ExplainerComponent):
     def component_callbacks(self, app):
         if not self.index_dropdown:
             @app.callback(
-                [Output(self.name, 'valid'),
-                 Output(self.name, 'invalid')],
-                [Input(self.name, 'value')]
-            )
+                        [Output(self.name, 'valid'),
+                         Output(self.name, 'invalid')],
+                        [Input(self.name, 'value')]
+                    )
             def update_valid_index(index):
                 if index is not None:
-                    if self.explainer.index_exists(index):
-                        return True, False
-                    else:
-                        return False, True
+                    return (True, False) if self.explainer.index_exists(index) else (False, True)
                 return False, False
                 
 
@@ -596,63 +603,97 @@ class GraphPopout(ExplainerComponent):
     def layout(self):
         return html.Div(
             [
-                dbc.Button(self.button_text, id=self.name+'modal-open', size=self.button_size, outline=self.button_outline),
-                dbc.Modal([
-                    dbc.ModalHeader(self.title),
-                    dcc.Graph(id=self.name+'-modal-graph', style={"max-height": "none", "height": "80%"}),
-                    dbc.ModalFooter([   
-                        html.Div([
-                            html.Div([
-                                html.Div([
-                                    dbc.Button(html.Small("Description"), 
-                                           id=self.name+'-show-description',
-                                           color='link', className="text-muted ml-auto"),
-                                    dbc.Fade([
-                                            html.Small(self.description, className="text-muted")],
-                                            id=self.name+'-fade',
-                                            is_in=True,
-                                            appear=True), 
-                                ], style=dict(display="none" if not self.description else None))
-                            ], className="text-left"),  
-                            html.Div([
-                                dbc.Button("Close", id=self.name+'-modal-close', className="mr-auto")            
-                            ], className="text-right", style=dict(float='right')),   
-                            
-                        ], style={"display":"flex"}),             
-                    ], className="justify-content-between")       
-                ], id=self.name+'-modal', style={"max-width": "none", "width": "80%"}) 
-            ], style={"display":"flex", "justify-content":"flex-end"})
+                dbc.Button(
+                    self.button_text,
+                    id=f'{self.name}modal-open',
+                    size=self.button_size,
+                    outline=self.button_outline,
+                ),
+                dbc.Modal(
+                    [
+                        dbc.ModalHeader(self.title),
+                        dcc.Graph(
+                            id=f'{self.name}-modal-graph',
+                            style={"max-height": "none", "height": "80%"},
+                        ),
+                        dbc.ModalFooter(
+                            [
+                                html.Div(
+                                    [
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        dbc.Button(
+                                                            html.Small(
+                                                                "Description"
+                                                            ),
+                                                            id=f'{self.name}-show-description',
+                                                            color='link',
+                                                            className="text-muted ml-auto",
+                                                        ),
+                                                        dbc.Fade(
+                                                            [
+                                                                html.Small(
+                                                                    self.description,
+                                                                    className="text-muted",
+                                                                )
+                                                            ],
+                                                            id=f'{self.name}-fade',
+                                                            is_in=True,
+                                                            appear=True,
+                                                        ),
+                                                    ],
+                                                    style=dict(
+                                                        display=None
+                                                        if self.description
+                                                        else "none"
+                                                    ),
+                                                )
+                                            ],
+                                            className="text-left",
+                                        ),
+                                        html.Div(
+                                            [
+                                                dbc.Button(
+                                                    "Close",
+                                                    id=f'{self.name}-modal-close',
+                                                    className="mr-auto",
+                                                )
+                                            ],
+                                            className="text-right",
+                                            style=dict(float='right'),
+                                        ),
+                                    ],
+                                    style={"display": "flex"},
+                                )
+                            ],
+                            className="justify-content-between",
+                        ),
+                    ],
+                    id=f'{self.name}-modal',
+                    style={"max-width": "none", "width": "80%"},
+                ),
+            ],
+            style={"display": "flex", "justify-content": "flex-end"},
+        )
     
     def component_callbacks(self, app):
-        @app.callback(
-            [Output(self.name+'-modal', "is_open"),
-             Output(self.name+'-modal-graph', "figure")],
-            [Input(self.name+'modal-open', "n_clicks"), 
-             Input(self.name+'-modal-close', "n_clicks")],
-            [State(self.name+'-modal', "is_open"),
-             State(self.graph_id, 'figure')],
-        )
+        @app.callback([Output(f'{self.name}-modal', "is_open"), Output(f'{self.name}-modal-graph', "figure")], [Input(f'{self.name}modal-open', "n_clicks"), Input(f'{self.name}-modal-close', "n_clicks")], [State(f'{self.name}-modal', "is_open"), State(self.graph_id, 'figure')])
         def toggle_modal(open_modal, close_modal, modal_is_open, fig):
             if open_modal or close_modal: 
                 ctx = dash.callback_context
                 button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-                if button_id == self.name+'modal-open':
+                if button_id == f'{self.name}modal-open':
                     return (not modal_is_open, fig)
                 else:
                     return (not modal_is_open, dash.no_update)
             return (modal_is_open, dash.no_update)
-        
+
         if self.description is not None:
-            @app.callback(
-                Output(self.name+'-fade', "is_in"),
-                [Input(self.name+'-show-description', "n_clicks")],
-                [State(self.name+'-fade', "is_in")],
-            )
+            @app.callback(Output(f'{self.name}-fade', "is_in"), [Input(f'{self.name}-show-description', "n_clicks")], [State(f'{self.name}-fade', "is_in")])
             def toggle_fade(n_clicks, is_in):
-                if not n_clicks:
-                    # Button has never been clicked
-                    return False
-                return not is_in
+                return not is_in if n_clicks else False
 
 
 def instantiate_component(component, explainer, name=None, **kwargs):

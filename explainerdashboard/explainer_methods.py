@@ -65,9 +65,8 @@ def safe_isinstance(obj, *instance_str):
         if i.endswith("'>"):
             if obj_str.endswith(i):
                 return True
-        else:
-            if obj_str[:-2].endswith(i):
-                return True
+        elif obj_str[:-2].endswith(i):
+            return True
     return False
 
 
@@ -103,28 +102,30 @@ def guess_shap(model):
                      'skorch.regressor.NeuralNetRegressor',
                      'skorch.classifier.NeuralNetClassifier',
                      'skorch.classifier.NeuralNetBinaryClassifier']
-    
+
     for tree_model in tree_models:
         if str(type(model)).endswith(tree_model + "'>"):
             return 'tree'
-    
+
     for lin_model in linear_models:
         if str(type(model)).endswith(lin_model + "'>"):
             return 'linear'
 
-    for skorch_model in skorch_models:
-        if str(type(model)).endswith(skorch_model + "'>"):
-            return 'skorch'
-
-    return None
+    return next(
+        (
+            'skorch'
+            for skorch_model in skorch_models
+            if str(type(model)).endswith(skorch_model + "'>")
+        ),
+        None,
+    )
 
 
 def mape_score(y_true, y_pred):
     """returns Mean Absolute Percentage Error"""
     epsilon = np.finfo(np.float64).eps
     absolute_percentage_errors = np.abs(y_pred - y_true) / np.maximum(np.abs(y_true), epsilon)
-    mape = np.average(absolute_percentage_errors)
-    return mape
+    return np.average(absolute_percentage_errors)
 
 
 def parse_cats(X, cats, sep:str="_"):
@@ -144,14 +145,14 @@ def parse_cats(X, cats, sep:str="_"):
     all_cols = X.columns
     onehot_cols = []
     onehot_dict = {}
-    
+
     col_counter = Counter()
 
     if isinstance(cats, dict):
         for k, v in cats.items():
             assert set(v).issubset(set(all_cols)), \
                 f"These cats columns for {k} could not be found in X.columns: {set(v)-set(all_cols)}!"
-            col_counter.update(v)
+            col_counter |= v
         onehot_dict = cats
     elif isinstance(cats, list):
         for cat in cats:
@@ -213,12 +214,12 @@ def split_pipeline(pipeline, X, verbose=1):
         ("When passing an sklearn.Pipeline, the last step of the pipeline should be a model, "
          f"but {pipeline.steps[-1][1]} does not have a .predict() function!")
     model = pipeline.steps[-1][1]
-    
+
     if X is None:
         return X, model
-    
+
     X_transformed, columns = Pipeline(pipeline.steps[:-1]).transform(X), None
-    
+
     if hasattr(pipeline, "get_feature_names"):
         try:
             columns = pipeline.get_feature_names()
@@ -229,23 +230,22 @@ def split_pipeline(pipeline, X, verbose=1):
                 print(f"len(pipeline.get_feature_names())={len(columns)} does"
                       f" not equal X_transformed.shape[0]={X_transformed.shape[0]}!", flush=True)
                 columns = None
-    if columns is None and X_transformed.shape == X.values.shape:
-        for i, pipe in enumerate(pipeline):
-            if hasattr(pipe, "n_features_in_"):
-                assert pipe.n_features_in_ == len(X.columns), \
-                    (f".n_features_in_ did not match len(X.columns)={len(X.columns)} for pipeline step {i}: {pipe}!"
-                     "For now explainerdashboard only supports sklearn Pipelines that have a "
-                     ".get_feature_names() method or do not add/drop any columns...")
-        print("Note: sklearn.Pipeline output shape is equal to X input shape, "
-              f"so assigning column names from X.columns: {X.columns.tolist()}, so"
-              " make sure that your pipeline does not add, remove or reorders columns!", flush=True)
-        columns = X.columns
-    else:
+    if columns is not None or X_transformed.shape != X.values.shape:
         raise ValueError("Pipeline does not return same number of columns as input, "
                         "nor does it have a proper .get_feature_names() method! "
                         "Try passing the final estimator in the pipeline seperately "
                         "together with an already transformed dataframe.")
-        
+
+    for i, pipe in enumerate(pipeline):
+        if hasattr(pipe, "n_features_in_"):
+            assert pipe.n_features_in_ == len(X.columns), \
+                (f".n_features_in_ did not match len(X.columns)={len(X.columns)} for pipeline step {i}: {pipe}!"
+                 "For now explainerdashboard only supports sklearn Pipelines that have a "
+                 ".get_feature_names() method or do not add/drop any columns...")
+    print("Note: sklearn.Pipeline output shape is equal to X input shape, "
+          f"so assigning column names from X.columns: {X.columns.tolist()}, so"
+          " make sure that your pipeline does not add, remove or reorders columns!", flush=True)
+    columns = X.columns
     X_transformed = pd.DataFrame(X_transformed, columns=columns)
     return X_transformed, model
 
@@ -270,12 +270,11 @@ def retrieve_onehot_value(X, encoded_col, onehot_cols, not_encoded="NOT_ENCODED"
 
     # if not a single 1 then encoded feature must have been dropped
     feature_value[np.max(X[onehot_cols].values, axis=1) == 0] = -1
-    if all([col.startswith(col+"_") for col in onehot_cols]):
-        mapping = {-1: encoded_col+not_encoded}
-    else:
-        mapping = {-1: not_encoded}
-
-    mapping.update({i: col for i, col in enumerate(onehot_cols)})
+    mapping = (
+        {-1: encoded_col + not_encoded}
+        if all(col.startswith(col + "_") for col in onehot_cols)
+        else {-1: not_encoded}
+    ) | enumerate(onehot_cols)
     return pd.Series(feature_value).map(mapping)
 
 
@@ -305,16 +304,12 @@ def merge_categorical_columns(X, onehot_dict=None, cols=None, not_encoded_dict=N
                                     col_name, col_list, 
                                     not_encoded_dict.get(col_name, "NOT_ENCODED"), 
                                     sep).astype("category")
-        else:
-            if not drop_regular:
-                if is_categorical_dtype(X[col_name]):
-                    X_cats[col_name] = pd.Categorical(X[col_name])
-                else:
-                    X_cats.loc[:, col_name] = X[col_name].values
-    if cols:
-        return X_cats[cols]
-    else:
-        return X_cats
+        elif not drop_regular:
+            if is_categorical_dtype(X[col_name]):
+                X_cats[col_name] = pd.Categorical(X[col_name])
+            else:
+                X_cats.loc[:, col_name] = X[col_name].values
+    return X_cats[cols] if cols else X_cats
 
 def matching_cols(cols1, cols2):
     """returns True if cols1 and cols2 match."""
@@ -324,9 +319,7 @@ def matching_cols(cols1, cols2):
         cols2 = cols2.columns
     if len(cols1) != len(cols2):
         return False
-    if (pd.Index(cols1) == pd.Index(cols2)).all():
-        return True
-    return False
+    return bool((pd.Index(cols1) == pd.Index(cols2)).all())
 
 def remove_cat_names(X_cats, onehot_dict, onehot_missing_dict=None):
     """removes the leading category names in the onehotencoded columns. 
@@ -336,7 +329,7 @@ def remove_cat_names(X_cats, onehot_dict, onehot_missing_dict=None):
         if len(cols) > 1:
             mapping = {c:(c[len(cat)+1:] if c.startswith(cat+'_') else c) for c in cols}
             if onehot_missing_dict:
-                mapping.update({onehot_missing_dict[cat]:onehot_missing_dict[cat]})
+                mapping[onehot_missing_dict[cat]] = onehot_missing_dict[cat]
             X_cats[cat] = X_cats[cat].map(mapping, na_action='ignore')
     return X_cats
 
@@ -383,9 +376,7 @@ def merge_categorical_shap_values(shap_df, onehot_dict=None, output_cols=None):
         if len(col_list) > 1:
             shap_df[col_name] = shap_df[col_list].sum(axis=1)
             onehot_cols.append(col_name)
-    if output_cols is not None:
-        return shap_df[output_cols]
-    return shap_df[onehot_cols]
+    return shap_df[onehot_cols] if output_cols is None else shap_df[output_cols]
 
 
 
@@ -605,7 +596,11 @@ def cv_permutation_importances(model, X, y, metric, onehot_dict=None, greater_is
         if i == 0:
             imps = imp[['Feature', 'Importance']]
         else:
-            imps = imps.merge(imp[['Feature', 'Importance']], on='Feature', suffixes=("", "_" + str(i)))
+            imps = imps.merge(
+                imp[['Feature', 'Importance']],
+                on='Feature',
+                suffixes=("", f"_{str(i)}"),
+            )
 
     return (imps.set_index("Feature").mean(axis=1)
                 .to_frame().rename(columns={0:'Importance'})
@@ -628,18 +623,24 @@ def get_mean_absolute_shap_df(columns, shap_values, onehot_dict=None):
     if onehot_dict is None:
         onehot_dict = {col:[col] for col in columns}
     columns = pd.Index(columns)
-    shap_abs_mean_dict = {}
-    for col_name, col_list in onehot_dict.items():
-        shap_abs_mean_dict[col_name] = np.absolute(
-            shap_values[:, [columns.get_loc(col) for col in col_list]].sum(axis=1)
+    shap_abs_mean_dict = {
+        col_name: np.absolute(
+            shap_values[:, [columns.get_loc(col) for col in col_list]].sum(
+                axis=1
+            )
         ).mean()
-
-    shap_df = pd.DataFrame(
-        {
-            'Feature': list(shap_abs_mean_dict.keys()),
-            'MEAN_ABS_SHAP': list(shap_abs_mean_dict.values())
-        }).sort_values('MEAN_ABS_SHAP', ascending=False).reset_index(drop=True)
-    return shap_df
+        for col_name, col_list in onehot_dict.items()
+    }
+    return (
+        pd.DataFrame(
+            {
+                'Feature': list(shap_abs_mean_dict.keys()),
+                'MEAN_ABS_SHAP': list(shap_abs_mean_dict.values()),
+            }
+        )
+        .sort_values('MEAN_ABS_SHAP', ascending=False)
+        .reset_index(drop=True)
+    )
 
 def get_grid_points(array, n_grid_points=10, min_percentage=0, max_percentage=100):
     """seperates a numerical array into a number of grid points. Helper function
@@ -661,16 +662,12 @@ def get_grid_points(array, n_grid_points=10, min_percentage=0, max_percentage=10
         np.array
     """
     
-    if isinstance(array, pd.Series):
-        array = array.values
-    else:
-        array = np.array(array)
+    array = array.values if isinstance(array, pd.Series) else np.array(array)
     if not is_numeric_dtype(array):
         raise ValueError("array should be a numeric dtype!")
-        
+
     percentile_grids = np.linspace(start=min_percentage, stop=max_percentage, num=n_grid_points)
-    value_grids = np.percentile(array, percentile_grids)
-    return value_grids
+    return np.percentile(array, percentile_grids)
 
 
 def get_pdp_df(model, X_sample:pd.DataFrame, feature:Union[str, List], pos_label=1,
@@ -706,13 +703,16 @@ def get_pdp_df(model, X_sample:pd.DataFrame, feature:Union[str, List], pos_label
 
     if grid_values is None:
         if isinstance(feature, str):
-            if not is_numeric_dtype(X_sample[feature]):
-                grid_values = sorted(X_sample[feature].unique().tolist())
-            else:
-                grid_values = get_grid_points(X_sample[feature], 
-                                              n_grid_points=n_grid_points, 
-                                              min_percentage=min_percentage, 
-                                              max_percentage=max_percentage).tolist()
+            grid_values = (
+                get_grid_points(
+                    X_sample[feature],
+                    n_grid_points=n_grid_points,
+                    min_percentage=min_percentage,
+                    max_percentage=max_percentage,
+                ).tolist()
+                if is_numeric_dtype(X_sample[feature])
+                else sorted(X_sample[feature].unique().tolist())
+            )
         elif isinstance(feature, list):
             grid_values = feature
         else:
@@ -726,7 +726,7 @@ def get_pdp_df(model, X_sample:pd.DataFrame, feature:Union[str, List], pos_label
             first_row = X_sample.iloc[[0]]
         n_labels = model.predict_proba(first_row).shape[1]
         if multiclass:
-            pdp_dfs = [pd.DataFrame() for i in range(n_labels)]
+            pdp_dfs = [pd.DataFrame() for _ in range(n_labels)]
         else:
             pdp_df = pd.DataFrame()
     else:
@@ -741,9 +741,9 @@ def get_pdp_df(model, X_sample:pd.DataFrame, feature:Union[str, List], pos_label
             dtemp.loc[:, feature] = [1 if col==grid_value else 0 for col in feature]
         else:
             dtemp.loc[:, feature] = grid_value
+        if cast_to_float32:
+            dtemp = dtemp.values.astype("float32")
         if is_classifier:
-            if cast_to_float32:
-                dtemp = dtemp.values.astype("float32")
             pred_probas = model.predict_proba(dtemp).squeeze()
             if multiclass:
                 for i in range(n_labels):
@@ -751,14 +751,9 @@ def get_pdp_df(model, X_sample:pd.DataFrame, feature:Union[str, List], pos_label
             else:
                 pdp_df[grid_value] = pred_probas[:, pos_label]
         else:
-            if cast_to_float32:
-                dtemp = dtemp.values.astype("float32")
             preds = model.predict(dtemp).squeeze()
             pdp_df[grid_value] = preds
-    if multiclass:
-        return pdp_dfs
-    else:
-        return pdp_df
+    return pdp_dfs if multiclass else pdp_df
 
 
 def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None, 
@@ -798,7 +793,7 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
             or (bin_size is None and quantiles is not None)), \
         "either only pass bin_size or only pass quantiles!"
 
-    
+
     if len(pred_probas.shape) == 2:
         # in case the full binary classifier pred_proba is passed,
         # we only select the probability of the positive class
@@ -809,15 +804,13 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
         predictions_df = pd.DataFrame(
             {'pred_proba': pred_probas, 'target': y_true})
         n_classes = 1
-        
+
     predictions_df = predictions_df.sort_values('pred_proba')
 
     # define a placeholder df:
     columns = ['p_min', 'p_max', 'p_avg', 'bin_width', 'precision', 'count']
     if n_classes > 1:
-        for i in range(n_classes):
-            columns.append('precision_' + str(i))
-
+        columns.extend(f'precision_{str(i)}' for i in range(n_classes))
     precision_df = pd.DataFrame(columns=columns)
 
     if bin_size:
@@ -849,11 +842,12 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
                         ].target.count()
                     if n_classes > 1:
                         for i in range(n_classes):
-                            new_row_dict['precision_' + str(i)] = (
+                            new_row_dict[f'precision_{str(i)}'] = (
                                 predictions_df[
                                     (predictions_df.pred_proba >= bin_min)
                                     & (predictions_df.pred_proba <= bin_max)
-                                ].target == i
+                                ].target
+                                == i
                             ).mean()
                 else:
                     new_row_dict['p_avg'] = predictions_df[
@@ -874,15 +868,16 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
                     ).count()
                     if n_classes > 1:
                         for i in range(n_classes):
-                            new_row_dict['precision_' + str(i)] = (
+                            new_row_dict[f'precision_{str(i)}'] = (
                                 predictions_df[
                                     (predictions_df.pred_proba > bin_min)
                                     & (predictions_df.pred_proba <= bin_max)
-                                ].target == i
+                                ].target
+                                == i
                             ).mean()
                 new_row_df = pd.DataFrame(new_row_dict, columns=precision_df.columns)
                 precision_df = pd.concat([precision_df, new_row_df])
-        
+
     elif quantiles:
         preds_quantiles = np.array_split(predictions_df.pred_proba.values, quantiles)
         target_quantiles = np.array_split(predictions_df.target.values, quantiles)
@@ -900,7 +895,7 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
                 }
             if n_classes > 1:
                 for i in range(n_classes):
-                    new_row_dict['precision_' + str(i)] = np.mean(targets==i)
+                    new_row_dict[f'precision_{str(i)}'] = np.mean(targets==i)
 
             new_row_df = pd.DataFrame(new_row_dict, columns=precision_df.columns)
             precision_df = pd.concat([precision_df, new_row_df])
@@ -909,7 +904,7 @@ def get_precision_df(pred_probas, y_true, bin_size=None, quantiles=None,
     precision_df[['p_avg', 'precision']] = precision_df[['p_avg', 'precision']]\
                 .astype(float).apply(partial(np.round, decimals=round))
     if n_classes > 1:
-        precision_cols = ['precision_' + str(i) for i in range(n_classes)]
+        precision_cols = [f'precision_{str(i)}' for i in range(n_classes)]
         precision_df[precision_cols] = precision_df[precision_cols]\
                 .astype(float).apply(partial(np.round, decimals=round))
     return precision_df
@@ -942,7 +937,11 @@ def get_liftcurve_df(pred_probas, y, pos_label=1, n_rows=100):
     lift_df['random_precision'] = (100 * (lift_df['random_pos'] /  lift_df['index'])).astype("float32")
     lift_df['random_cumulative_percentage_pos'] = (100 * (lift_df['random_pos'] / (lift_df.y==pos_label).astype(int).sum())).astype("float32")
     for y_label in range(y.nunique()):
-        lift_df['precision_' + str(y_label)] = 100*(lift_df.y==y_label).astype(int).cumsum() / lift_df['index']
+        lift_df[f'precision_{str(y_label)}'] = (
+            100
+            * (lift_df.y == y_label).astype(int).cumsum()
+            / lift_df['index']
+        )
     if len(lift_df) > 100:
         lift_df = lift_df.iloc[np.linspace(0, len(lift_df), num=n_rows, dtype=int, endpoint=False)]
     return lift_df
@@ -1231,19 +1230,38 @@ def get_decisiontree_summary_df(decisiontree_df, classifier=False, round=2, unit
 
     for _, row in decisiontree_df.iterrows():
         if classifier:
-            decisiontree_summary_df = decisiontree_summary_df.append({
-                            'Feature' : row['feature'],
-                            'Condition' : str(row['value']) + str(' >= ' if row['direction'] == 'right' else ' < ') + str(row['split']).ljust(10),
-                            'Adjustment' : str('+' if row['diff'] >= 0 else '') + str(np.round(100*row['diff'], round)) +'%',
-                            'New Prediction' : str(np.round(100*(row['average']+row['diff']), round)) + '%'
-                        }, ignore_index=True)
+            decisiontree_summary_df = decisiontree_summary_df.append(
+                {
+                    'Feature': row['feature'],
+                    'Condition': str(row['value'])
+                    + (' >= ' if row['direction'] == 'right' else ' < ')
+                    + str(row['split']).ljust(10),
+                    'Adjustment': ('+' if row['diff'] >= 0 else '')
+                    + str(np.round(100 * row['diff'], round))
+                    + '%',
+                    'New Prediction': str(
+                        np.round(100 * (row['average'] + row['diff']), round)
+                    )
+                    + '%',
+                },
+                ignore_index=True,
+            )
         else:
-            decisiontree_summary_df = decisiontree_summary_df.append({
-                            'Feature' : row['feature'],
-                            'Condition' : str(row['value']) + str(' >= ' if row['direction'] == 'right' else ' < ') + str(row['split']).ljust(10),
-                            'Adjustment' : str('+' if row['diff'] >= 0 else '') + str(np.round(row['diff'], round)),
-                            'New Prediction' : str(np.round((row['average']+row['diff']), round)) + f" {units}"
-                        }, ignore_index=True)
+            decisiontree_summary_df = decisiontree_summary_df.append(
+                {
+                    'Feature': row['feature'],
+                    'Condition': str(row['value'])
+                    + (' >= ' if row['direction'] == 'right' else ' < ')
+                    + str(row['split']).ljust(10),
+                    'Adjustment': ('+' if row['diff'] >= 0 else '')
+                    + str(np.round(row['diff'], round)),
+                    'New Prediction': str(
+                        np.round((row['average'] + row['diff']), round)
+                    )
+                    + f" {units}",
+                },
+                ignore_index=True,
+            )
 
     decisiontree_summary_df = decisiontree_summary_df.append({
                         'Feature' : "",
@@ -1270,14 +1288,14 @@ def get_xgboost_node_dict(xgboost_treedump):
     node_dict = {}
     for row in xgboost_treedump.splitlines():
         s = row.strip()
-        node = int(re.search("^(.*)\:", s).group(1))
-        is_leaf = re.search(":(.*)\=", s).group(1) == "leaf"
+        node = int(re.search("^(.*)\:", s)[1])
+        is_leaf = re.search(":(.*)\=", s)[1] == "leaf"
 
-        leaf_value = re.search("leaf=(.*)$", s).group(1) if is_leaf else None
-        feature = re.search('\[(.*)\<', s).group(1) if not is_leaf else None
-        cutoff = float(re.search('\<(.*)\]', s).group(1)) if not is_leaf else None
-        left_node = int(re.search('yes=(.*)\,no', s).group(1)) if not is_leaf else None
-        right_node = int(re.search('no=(.*)\,', s).group(1)) if not is_leaf else None
+        leaf_value = re.search("leaf=(.*)$", s)[1] if is_leaf else None
+        feature = None if is_leaf else re.search('\[(.*)\<', s)[1]
+        cutoff = None if is_leaf else float(re.search('\<(.*)\]', s)[1])
+        left_node = None if is_leaf else int(re.search('yes=(.*)\,no', s)[1])
+        right_node = None if is_leaf else int(re.search('no=(.*)\,', s)[1])
         node_dict[node] = dict(
             node=node, 
             is_leaf=is_leaf, 
@@ -1401,15 +1419,15 @@ def get_xgboost_preds_df(xgbmodel, X_row, pos_label=1):
         else:
             base_proba = 1.0 / n_classes
             base_score = xgbmodel.get_params()['base_score']
-            n_trees = int(len(xgbmodel.get_booster().get_dump()) / n_classes)
-                
+            n_trees = len(xgbmodel.get_booster().get_dump()) // n_classes
+
     elif str(type(xgbmodel)).endswith("XGBRegressor'>"):
         is_classifier=False
         base_score = xgbmodel.get_params()['base_score']
         n_trees = len(xgbmodel.get_booster().get_dump())
     else:
         raise ValueError("Pass either an XGBClassifier or XGBRegressor!")
-        
+
 
     if is_classifier:
         if n_classes == 2:
@@ -1422,11 +1440,11 @@ def get_xgboost_preds_df(xgbmodel, X_row, pos_label=1):
             margins = [xgbmodel.predict(X_row, iteration_range=(0, i+1), output_margin=True)[0] for i in range(n_trees)]
             preds = [margin[pos_label] for margin in margins]
             pred_probas = [(np.exp(margin)/ np.exp(margin).sum())[pos_label] for margin in margins]
-            
+
     else:
         preds = [xgbmodel.predict(X_row, iteration_range=(0, i+1), output_margin=True)[0] for i in range(n_trees)]
-             
-    
+
+
     xgboost_preds_df = pd.DataFrame(
         dict(
             tree=range(-1, n_trees),
@@ -1435,7 +1453,7 @@ def get_xgboost_preds_df(xgbmodel, X_row, pos_label=1):
     )
     xgboost_preds_df['pred_diff'] = xgboost_preds_df.pred.diff()
     xgboost_preds_df.loc[0, "pred_diff"] = xgboost_preds_df.loc[0, "pred"]
-    
+
     if is_classifier:
         xgboost_preds_df['pred_proba'] = [base_proba] + pred_probas
         xgboost_preds_df['pred_proba_diff'] = xgboost_preds_df.pred_proba.diff()

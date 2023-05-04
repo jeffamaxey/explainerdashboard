@@ -192,15 +192,17 @@ def div(html:str)->str:
     return f'<div>{html}</div>'
 
 
-def table_from_df(df)->str:
+def table_from_df(df) -> str:
     """Generate a html table from a pandas DataFrame"""
 
     header_row = '\n'.join([f'      <th scope="col">{col}</th>' for col in df.columns])
-    body_rows = ""
-    for i, row in df.iterrows():
-        body_rows += ('    <tr>\n'+'\n'.join(["      <td>"+str(val)+"</td>" for val in row.values])+'\n    </tr>\n')
-        
-    table = f"""
+    body_rows = "".join(
+        '    <tr>\n'
+        + '\n'.join([f"      <td>{str(val)}</td>" for val in row.values])
+        + '\n    </tr>\n'
+        for i, row in df.iterrows()
+    )
+    return f"""
 <table class="table">
   <thead>
     <tr>
@@ -212,13 +214,10 @@ def table_from_df(df)->str:
   </tbody>
 </table>
     """
-    return table
 
-def hide(html:str, hide:bool=False)->str:
+def hide(html:str, hide:bool=False) -> str:
     """optionally hide an html snippet (return empty div) if parameter hide=True"""
-    if hide:
-        return "<div></div>"
-    return html
+    return "<div></div>" if hide else html
 
 def tabs(tabs_dict:dict)->str:
     """Generate a series of bootstrap tabs for a dictionary tabs_dict with the

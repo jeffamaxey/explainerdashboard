@@ -298,11 +298,9 @@ class RegressionRandomIndexComponent(ExplainerComponent):
 
     def to_html(self, state_dict=None, add_header=True):
         args = self.get_state_args(state_dict)
-        
+
         html = to_html.card(f"Selected index: <b>{self.explainer.get_index(args['index'])}</b>", title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(
@@ -317,15 +315,15 @@ class RegressionRandomIndexComponent(ExplainerComponent):
             raise PreventUpdate
 
         @app.callback(
-            [Output('random-index-reg-residual-slider-div-'+self.name, 'style'),
-             Output('random-index-reg-abs-residual-slider-div-'+self.name, 'style')],
-            [Input('random-index-reg-abs-residual-'+self.name, 'value')])
+                [Output('random-index-reg-residual-slider-div-'+self.name, 'style'),
+                 Output('random-index-reg-abs-residual-slider-div-'+self.name, 'style')],
+                [Input('random-index-reg-abs-residual-'+self.name, 'value')])
         def update_reg_hidden_div_pred_sliders(abs_residuals):
-            if abs_residuals == 'absolute':
-                return (dict(display="none"), None)
-            else:
-                return (None, dict(display="none"))
-            raise PreventUpdate
+            return (
+                (dict(display="none"), None)
+                if abs_residuals == 'absolute'
+                else (None, dict(display="none"))
+            )
 
         @app.callback(
             [Output('random-index-reg-residual-slider-'+self.name, 'min'),
@@ -464,9 +462,7 @@ class RegressionModelSummaryComponent(ExplainerComponent):
                         .rename_axis(index="metric").reset_index().round(self.round))
         html = to_html.table_from_df(metrics_df)
         html = to_html.card(html, title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
 class RegressionPredictionSummaryComponent(ExplainerComponent):
     
@@ -556,17 +552,17 @@ class RegressionPredictionSummaryComponent(ExplainerComponent):
         else:
             inputs = {k:v for k,v in self.feature_input_component.get_state_args(state_dict).items() if k != 'index'}
             inputs = list(inputs.values())
-            if len(inputs) == len(self.feature_input_component._input_features) and not any([i is None for i in inputs]):
+            if len(inputs) == len(
+                self.feature_input_component._input_features
+            ) and all(i is not None for i in inputs):
                 X_row = self.explainer.get_row_from_input(inputs, ranked_by_shap=True)
                 preds_df = self.explainer.prediction_result_df(X_row=X_row, round=self.round)
                 html = to_html.table_from_df(preds_df)
             else:
-                html = f"<div>input data incorrect</div>"
-            
+                html = "<div>input data incorrect</div>"
+
         html = to_html.card(html, title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         if self.feature_input_component is None:
@@ -715,9 +711,7 @@ class PredictedVsActualComponent(ExplainerComponent):
                                     log_x=bool(args['log_x']), log_y=bool(args['log_y']), 
                                     round=self.round, plot_sample=self.plot_sample)
         html = to_html.card(to_html.fig(fig), title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(
@@ -858,9 +852,7 @@ class ResidualsComponent(ExplainerComponent):
                                         round=self.round, plot_sample=self.plot_sample)
         fig.update_layout(margin=dict(t=40, b=40, l=40, r=40))
         html = to_html.card(to_html.fig(fig), title=self.title)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(
@@ -1085,9 +1077,7 @@ class RegressionVsColComponent(ExplainerComponent):
                     plot_sample=self.plot_sample)
         fig.update_layout(margin=dict(t=40, b=40, l=40, r=40))
         html = to_html.card(to_html.fig(fig), title=self.title, subtitle=self.subtitle)
-        if add_header:
-            return to_html.add_header(html)
-        return html
+        return to_html.add_header(html) if add_header else html
 
     def component_callbacks(self, app):
         @app.callback(
